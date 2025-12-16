@@ -226,6 +226,46 @@
             flex-wrap: wrap
         }
 
+        .timerRow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-right: 10px;
+            flex-wrap: wrap;
+        }
+
+        .timerLabel {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .timerDisplay {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #0003;
+            font-weight: 900;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+
+        .timerDisplay.expired {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .timerInput {
+            width: 120px;
+            padding: 6px 8px;
+            border-radius: 10px;
+            background: #0003;
+            border: 1px solid rgba(59,70,86,.85);
+            color: var(--text);
+            outline: none;
+        }
+
         .badge {
             font-size: 11px;
             padding: 4px 8px;
@@ -626,6 +666,7 @@
                         <th style="width:140px;">ロック状態</th>
                         <th style="width:260px;">ロック解除タスク（IDカンマ区切り）</th>
                         <th style="width:120px;">獲得ポイント</th>
+                        <th style="width:160px;">タイマー（hh:mm:ss）</th>
                         <th style="width:110px;">状態</th>
                         <th style="width:220px;">タイトル</th>
                         <th>内容</th>
@@ -647,6 +688,7 @@
                         <th style="width:140px;">ロック状態</th>
                         <th style="width:260px;">ロック解除タスク（IDをカンマ区切り）</th>
                         <th style="width:120px;">獲得ポイント</th>
+                        <th style="width:160px;">タイマー（hh:mm:ss）</th>
                         <th style="width:220px;">タイトル</th>
                         <th>内容</th>
                         <th style="width:90px;">削除</th>
@@ -696,6 +738,8 @@
             let filterMode = "active";
 
             const busyMap = new Map();
+            const timerEls = new Map();
+            const TIMER_TICK_MS = 1000;
 
             // ★連動グループ番号
             let groupNoById = new Map(); // id -> number
@@ -715,6 +759,8 @@
                 if (!("title" in n)) n.title = "";
                 if (!("text" in n)) n.text = "";
                 if (!("plan" in n)) n.plan = 0;
+                if (!("timerSeconds" in n)) n.timerSeconds = 0;
+                if (!("timerStartedAt" in n)) n.timerStartedAt = null;
                 if (!("x" in n) || !("y" in n)) {
                     const p = randomPos();
                     n.x = p.x; n.y = p.y;
@@ -739,6 +785,7 @@
                     if (!("title" in it)) it.title = "";
                     if (!("text" in it)) it.text = "";
                     if (!("plan" in it)) it.plan = 0;
+                    if (!("timerSeconds" in it)) it.timerSeconds = 0;
                 }
             };
 
@@ -760,6 +807,36 @@
             }
 
             const coinCountFromPoints = (p) => Math.max(1, Math.min(8, Math.floor(Number(p || 0) / 10) || 1));
+
+            function formatHHMMSS(sec) {
+                const s = Math.max(0, Math.floor(sec || 0));
+                const h = Math.floor(s / 3600);
+                const m = Math.floor((s % 3600) / 60);
+                const rem = s % 60;
+                return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
+            }
+
+            function parseHHMMSS(str) {
+                if (!str || !str.trim()) return 0;
+                const parts = str.trim().split(":").map(p => p.trim());
+                if (parts.some(p => p === "")) return null;
+                let h = 0, m = 0, s = 0;
+                if (parts.length === 3) [h, m, s] = parts;
+                else if (parts.length === 2) { m = parts[0]; s = parts[1]; }
+                else if (parts.length === 1) { s = parts[0]; }
+                else return null;
+
+                h = Number(h); m = Number(m); s = Number(s);
+                if (![h, m, s].every(Number.isFinite) || m < 0 || m >= 60 || s < 0 || s >= 60 || h < 0) return null;
+                return Math.floor(h * 3600 + m * 60 + s);
+            }
+
+            function remainingSeconds(note) {
+                const base = Math.max(0, Math.floor(Number(note.timerSeconds) || 0));
+                if (!note.timerStartedAt || note.status !== "doing") return base;
+                const elapsed = Math.floor((Date.now() - note.timerStartedAt) / 1000);
+                return Math.max(0, base - elapsed);
+            }
 
             function setHeaderBG() {
                 let m = "all";
@@ -848,6 +925,18 @@
                 if (n.status === "todo") return { text: "未完了", cls: "todo" };
                 if (n.status === "doing") return { text: "受注中", cls: "doing" };
                 return { text: "完了", cls: "done" };
+            }
+
+            function updateTimerEl(note) {
+                const el = timerEls.get(note.id);
+                if (!el) return;
+                const remain = remainingSeconds(note);
+                el.textContent = formatHHMMSS(remain);
+                el.classList.toggle("expired", note.timerSeconds > 0 && note.timerStartedAt && remain === 0);
+            }
+
+            function tickTimers() {
+                for (const n of notes) updateTimerEl(n);
             }
 
             function deleteNoteById(id) {
@@ -1013,6 +1102,7 @@
 
                 n.status = "doing";
                 n.done = false;
+                n.timerStartedAt = Date.now();
                 save(); renderAll();
             }
             function cancelOrder(n) {
@@ -1020,6 +1110,7 @@
                 if (n.status !== "doing") return;
                 n.status = "todo";
                 n.done = false;
+                n.timerStartedAt = null;
                 save(); renderAll();
             }
             function completeTask(n, fxFromEl) {
@@ -1039,6 +1130,7 @@
 
                 n.status = "done";
                 n.done = true;
+                n.timerStartedAt = null;
                 totalPoints += (Number(n.plan) || 0);
 
                 save(); renderAll();
@@ -1054,6 +1146,7 @@
 
                 n.status = "todo";
                 n.done = false;
+                n.timerStartedAt = null;
                 totalPoints = Math.max(0, totalPoints - (Number(n.plan) || 0));
 
                 save(); renderAll();
@@ -1082,6 +1175,7 @@
             function renderNotes() {
                 board.innerHTML = "";
                 updateFilterUI();
+                timerEls.clear();
 
                 const visible = getVisibleNotes();
                 for (const n of visible) {
@@ -1142,7 +1236,41 @@
                         meta.append(lb);
                     }
 
-                    left.append(titleLabel, meta);
+                    const timerRow = document.createElement("div");
+                    timerRow.className = "timerRow";
+
+                    const timerLabel = document.createElement("div");
+                    timerLabel.className = "timerLabel";
+                    timerLabel.textContent = "タイマー";
+
+                    const timerDisplay = document.createElement("div");
+                    timerDisplay.className = "timerDisplay";
+                    timerEls.set(n.id, timerDisplay);
+                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(n));
+                    timerDisplay.classList.toggle("expired", n.timerSeconds > 0 && n.timerStartedAt && remainingSeconds(n) === 0);
+
+                    const timerInput = document.createElement("input");
+                    timerInput.className = "timerInput";
+                    timerInput.placeholder = "hh:mm:ss";
+                    timerInput.value = formatHHMMSS(n.timerSeconds || 0);
+                    timerInput.onchange = () => {
+                        const secs = parseHHMMSS(timerInput.value);
+                        if (secs == null) {
+                            alert("hh:mm:ss 形式で入力してほしいっす（例: 01:30:00）");
+                            timerInput.value = formatHHMMSS(n.timerSeconds || 0);
+                            return;
+                        }
+                        n.timerSeconds = secs;
+                        n.timerStartedAt = (n.status === "doing" && secs > 0) ? Date.now() : null;
+                        save();
+                        updateTimerEl(n);
+                        renderTable();
+                        renderDaily();
+                    };
+
+                    timerRow.append(timerLabel, timerDisplay, timerInput);
+
+                    left.append(titleLabel, meta, timerRow);
 
                     // 右側（削除＋連動番号）
                     const right = document.createElement("div");
@@ -1320,6 +1448,26 @@
                     };
                     tdPlan.append(inpPlan);
 
+                    const tdTimer = document.createElement("td");
+                    tdTimer.classList.add("td-center");
+                    const inpTimer = document.createElement("input");
+                    inpTimer.type = "text";
+                    inpTimer.className = "timerInput";
+                    inpTimer.value = formatHHMMSS(n.timerSeconds || 0);
+                    inpTimer.placeholder = "hh:mm:ss";
+                    inpTimer.onchange = () => {
+                        const secs = parseHHMMSS(inpTimer.value);
+                        if (secs == null) {
+                            alert("hh:mm:ss 形式で入力してほしいっす（例: 00:45:00）");
+                            inpTimer.value = formatHHMMSS(n.timerSeconds || 0);
+                            return;
+                        }
+                        n.timerSeconds = secs;
+                        n.timerStartedAt = (n.status === "doing" && secs > 0) ? Date.now() : null;
+                        save(); renderAll();
+                    };
+                    tdTimer.append(inpTimer);
+
                     const tdStatus = document.createElement("td");
                     tdStatus.classList.add("td-center");
                     const stInfo = statusLabel(n);
@@ -1383,7 +1531,7 @@
                     delBtn.onclick = () => deleteNoteById(n.id);
                     tdDel.append(delBtn);
 
-                    tr.append(tdId, tdType, tdLock, tdUnlock, tdPlan, tdStatus, tdTitle, tdText, tdOps, tdDel);
+                    tr.append(tdId, tdType, tdLock, tdUnlock, tdPlan, tdTimer, tdStatus, tdTitle, tdText, tdOps, tdDel);
                     tableBody.append(tr);
                 }
             }
@@ -1437,6 +1585,25 @@
                     inpPlan.onchange = () => { setPlan(d, inpPlan.value); save(); };
                     tdPlan.append(inpPlan);
 
+                    const tdTimer = document.createElement("td");
+                    tdTimer.classList.add("td-center");
+                    const inpTimer = document.createElement("input");
+                    inpTimer.type = "text";
+                    inpTimer.className = "timerInput";
+                    inpTimer.value = formatHHMMSS(d.timerSeconds || 0);
+                    inpTimer.placeholder = "hh:mm:ss";
+                    inpTimer.onchange = () => {
+                        const secs = parseHHMMSS(inpTimer.value);
+                        if (secs == null) {
+                            alert("hh:mm:ss 形式で入力してほしいっす（例: 00:30:00）");
+                            inpTimer.value = formatHHMMSS(d.timerSeconds || 0);
+                            return;
+                        }
+                        d.timerSeconds = secs;
+                        save();
+                    };
+                    tdTimer.append(inpTimer);
+
                     const tdTitle = document.createElement("td");
                     const inpTitle = document.createElement("input");
                     inpTitle.type = "text";
@@ -1463,7 +1630,7 @@
                     };
                     tdDel.append(delBtn);
 
-                    tr.append(tdId, tdLock, tdUnlock, tdPlan, tdTitle, tdText, tdDel);
+                    tr.append(tdId, tdLock, tdUnlock, tdPlan, tdTimer, tdTitle, tdText, tdDel);
                     dailyBody.append(tr);
                 }
             }
@@ -1493,7 +1660,9 @@
                         plan: Number(d.plan) || 0,
                         x: p.x, y: p.y, z: ++z,
                         lockState: d.lockState || "none",
-                        unlockTasks: d.unlockTasks || ""
+                        unlockTasks: d.unlockTasks || "",
+                        timerSeconds: Number(d.timerSeconds) || 0,
+                        timerStartedAt: null
                     };
                     migrateNote(n);
                     notes.push(n);
@@ -1552,12 +1721,13 @@
             }
             function saveDailyCSV() {
                 const ts = timestampYYYYMMDDHHMMSS();
-                const header = ["id", "lockState", "unlockTasks", "plan", "title", "text"].join(",");
+                const header = ["id", "lockState", "unlockTasks", "plan", "timer", "title", "text"].join(",");
                 const rows = dailyItems.map(d => [
                     csvEscape(d.id),
                     csvEscape(d.lockState),
                     csvEscape(encodeMultilineForCSV(d.unlockTasks)),
                     csvEscape(d.plan),
+                    csvEscape(formatHHMMSS(d.timerSeconds || 0)),
                     csvEscape(encodeMultilineForCSV(d.title)),
                     csvEscape(encodeMultilineForCSV(d.text))
                 ].join(","));
@@ -1596,6 +1766,13 @@
                         lockState: (obj("lockState") || "none").trim() || "none",
                         unlockTasks: decodeMultilineFromCSV(obj("unlockTasks") || ""),
                         plan: Number(obj("plan")) || 0,
+                        timerSeconds: (() => {
+                            const raw = obj("timer");
+                            const parsed = parseHHMMSS(raw);
+                            if (parsed != null) return parsed;
+                            const n = Number(raw);
+                            return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+                        })(),
                         title: decodeMultilineFromCSV(obj("title") || ""),
                         text: decodeMultilineFromCSV(obj("text") || "")
                     });
@@ -1629,7 +1806,9 @@
                     plan: plans[Math.floor(Math.random() * plans.length)],
                     x: p.x, y: p.y, z: ++z,
                     lockState: "none",
-                    unlockTasks: ""
+                    unlockTasks: "",
+                    timerSeconds: 0,
+                    timerStartedAt: null
                 };
                 migrateNote(n);
                 notes.push(n);
@@ -1644,7 +1823,8 @@
                     unlockTasks: "",
                     plan: plans[Math.floor(Math.random() * plans.length)],
                     title: "",
-                    text: ""
+                    text: "",
+                    timerSeconds: 0
                 });
                 save(); renderAll();
             };
@@ -1681,6 +1861,7 @@
 
             load();
             renderAll();
+            setInterval(tickTimers, TIMER_TICK_MS);
         })();
     </script>
 </body>
