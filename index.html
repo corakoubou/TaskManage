@@ -228,10 +228,17 @@
 
         .timerRow {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
             margin-top: 8px;
             padding-right: 10px;
+        }
+
+        .timerItem {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
@@ -242,13 +249,20 @@
             white-space: nowrap;
         }
 
-        .timerDisplay {
-            padding: 4px 10px;
-            border-radius: 999px;
+        .timerValue {
+            min-width: 120px;
+            padding: 6px 12px;
+            border-radius: 12px;
             border: 1px solid var(--border);
             background: #0003;
             font-weight: 900;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            text-align: center;
+        }
+
+        .timerDisplay {
+            pointer-events: none;
+            user-select: none;
         }
 
         .timerDisplay.expired {
@@ -257,14 +271,15 @@
         }
 
         .timerInput {
-            width: 120px;
-            padding: 6px 8px;
-            border-radius: 10px;
-            background: #0003;
-            border: 1px solid rgba(59,70,86,.85);
+            width: 140px;
             color: var(--text);
             outline: none;
         }
+
+            .timerValue.timerInput {
+                background: #12161e;
+                border-color: rgba(59,70,86,.85);
+            }
 
         .badge {
             font-size: 11px;
@@ -500,6 +515,35 @@
                 margin-right: auto;
             }
 
+        .td-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+        }
+
+            .td-stack .timerValue,
+            .td-stack .unlockInput,
+            .td-stack .tableBtn,
+            .td-stack select,
+            .td-stack input[type="number"],
+            .td-stack input[type="text"] {
+                width: 100%;
+                max-width: 200px;
+            }
+
+        .thStack {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            line-height: 1.3;
+        }
+
+        .thSub {
+            color: var(--muted);
+            font-size: 11px;
+        }
+
         /* ★操作ボタンをセル内で中央寄せ＋見た目をいい感じに */
         .opsCell {
             display: flex;
@@ -663,10 +707,19 @@
                     <tr>
                         <th style="width:180px;">ID</th>
                         <th style="width:140px;">タスクの種類</th>
-                        <th style="width:140px;">ロック状態</th>
-                        <th style="width:260px;">ロック解除タスク（IDカンマ区切り）</th>
+                        <th style="width:240px;">
+                            <div class="thStack">
+                                <div>ロック状態</div>
+                                <div class="thSub">ロック解除タスク（IDカンマ区切り）</div>
+                            </div>
+                        </th>
                         <th style="width:120px;">獲得ポイント</th>
-                        <th style="width:160px;">タイマー（hh:mm:ss）</th>
+                        <th style="width:180px;">
+                            <div class="thStack">
+                                <div>設定時間</div>
+                                <div class="thSub">現在時間</div>
+                            </div>
+                        </th>
                         <th style="width:110px;">状態</th>
                         <th style="width:220px;">タイトル</th>
                         <th>内容</th>
@@ -685,10 +738,19 @@
                 <thead>
                     <tr>
                         <th style="width:180px;">ID（コピー）</th>
-                        <th style="width:140px;">ロック状態</th>
-                        <th style="width:260px;">ロック解除タスク（IDをカンマ区切り）</th>
+                        <th style="width:240px;">
+                            <div class="thStack">
+                                <div>ロック状態</div>
+                                <div class="thSub">ロック解除タスク（IDをカンマ区切り）</div>
+                            </div>
+                        </th>
                         <th style="width:120px;">獲得ポイント</th>
-                        <th style="width:160px;">タイマー（hh:mm:ss）</th>
+                        <th style="width:180px;">
+                            <div class="thStack">
+                                <div>設定時間</div>
+                                <div class="thSub">現在時間</div>
+                            </div>
+                        </th>
                         <th style="width:220px;">タイトル</th>
                         <th>内容</th>
                         <th style="width:90px;">削除</th>
@@ -740,6 +802,25 @@
             const busyMap = new Map();
             const timerEls = new Map();
             const TIMER_TICK_MS = 1000;
+
+            function registerTimerEl(id, el, scope = "note") {
+                el.dataset.timerScope = scope;
+                let set = timerEls.get(id);
+                if (!set) {
+                    set = new Set();
+                    timerEls.set(id, set);
+                }
+                set.add(el);
+            }
+
+            function clearTimerElsByScope(scope) {
+                for (const [id, set] of timerEls) {
+                    for (const el of [...set]) {
+                        if (el.dataset.timerScope === scope) set.delete(el);
+                    }
+                    if (set.size === 0) timerEls.delete(id);
+                }
+            }
 
             // ★連動グループ番号
             let groupNoById = new Map(); // id -> number
@@ -928,15 +1009,19 @@
             }
 
             function updateTimerEl(note) {
-                const el = timerEls.get(note.id);
-                if (!el) return;
+                const els = timerEls.get(note.id);
+                if (!els || els.size === 0) return;
                 const remain = remainingSeconds(note);
-                el.textContent = formatHHMMSS(remain);
-                el.classList.toggle("expired", note.timerSeconds > 0 && note.timerStartedAt && remain === 0);
+                const isExpired = note.timerSeconds > 0 && note.timerStartedAt && remain === 0;
+                for (const el of els) {
+                    el.textContent = formatHHMMSS(remain);
+                    el.classList.toggle("expired", isExpired);
+                }
             }
 
             function tickTimers() {
                 for (const n of notes) updateTimerEl(n);
+                for (const d of dailyItems) updateTimerEl(d);
             }
 
             function deleteNoteById(id) {
@@ -1175,7 +1260,7 @@
             function renderNotes() {
                 board.innerHTML = "";
                 updateFilterUI();
-                timerEls.clear();
+                clearTimerElsByScope("note");
 
                 const visible = getVisibleNotes();
                 for (const n of visible) {
@@ -1239,18 +1324,15 @@
                     const timerRow = document.createElement("div");
                     timerRow.className = "timerRow";
 
-                    const timerLabel = document.createElement("div");
-                    timerLabel.className = "timerLabel";
-                    timerLabel.textContent = "タイマー";
+                    const timerSetRow = document.createElement("div");
+                    timerSetRow.className = "timerItem";
 
-                    const timerDisplay = document.createElement("div");
-                    timerDisplay.className = "timerDisplay";
-                    timerEls.set(n.id, timerDisplay);
-                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(n));
-                    timerDisplay.classList.toggle("expired", n.timerSeconds > 0 && n.timerStartedAt && remainingSeconds(n) === 0);
+                    const timerSetLabel = document.createElement("div");
+                    timerSetLabel.className = "timerLabel";
+                    timerSetLabel.textContent = "設定時間";
 
                     const timerInput = document.createElement("input");
-                    timerInput.className = "timerInput";
+                    timerInput.className = "timerInput timerValue";
                     timerInput.placeholder = "hh:mm:ss";
                     timerInput.value = formatHHMMSS(n.timerSeconds || 0);
                     timerInput.onchange = () => {
@@ -1268,7 +1350,24 @@
                         renderDaily();
                     };
 
-                    timerRow.append(timerLabel, timerDisplay, timerInput);
+                    timerSetRow.append(timerSetLabel, timerInput);
+
+                    const timerCurrentRow = document.createElement("div");
+                    timerCurrentRow.className = "timerItem";
+
+                    const timerCurrentLabel = document.createElement("div");
+                    timerCurrentLabel.className = "timerLabel";
+                    timerCurrentLabel.textContent = "現在時間";
+
+                    const timerDisplay = document.createElement("div");
+                    timerDisplay.className = "timerDisplay timerValue";
+                    registerTimerEl(n.id, timerDisplay, "note");
+                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(n));
+                    timerDisplay.classList.toggle("expired", n.timerSeconds > 0 && n.timerStartedAt && remainingSeconds(n) === 0);
+
+                    timerCurrentRow.append(timerCurrentLabel, timerDisplay);
+
+                    timerRow.append(timerSetRow, timerCurrentRow);
 
                     left.append(titleLabel, meta, timerRow);
 
@@ -1385,6 +1484,7 @@
             // ===== render: table =====
             function renderTable() {
                 tableBody.innerHTML = "";
+                clearTimerElsByScope("table");
 
                 for (const n of notes) {
                     const tr = document.createElement("tr");
@@ -1406,13 +1506,18 @@
                     tdType.append(typeBtn);
 
                     const tdLock = document.createElement("td");
-                    tdLock.classList.add("td-center");
+                    tdLock.classList.add("td-stack");
                     const sel = buildLockSelect(n.lockState);
-                    tdLock.append(sel);
 
-                    const tdUnlock = document.createElement("td");
                     const inpUnlock = buildUnlockInput(n.unlockTasks);
-                    tdUnlock.append(inpUnlock);
+
+                    const lockRow = document.createElement("div");
+                    lockRow.append(sel);
+
+                    const unlockRow = document.createElement("div");
+                    unlockRow.append(inpUnlock);
+
+                    tdLock.append(lockRow, unlockRow);
 
                     const applyUnlockEnabled = () => {
                         const locked = (sel.value === "lock");
@@ -1449,10 +1554,10 @@
                     tdPlan.append(inpPlan);
 
                     const tdTimer = document.createElement("td");
-                    tdTimer.classList.add("td-center");
+                    tdTimer.classList.add("td-stack", "td-center");
                     const inpTimer = document.createElement("input");
                     inpTimer.type = "text";
-                    inpTimer.className = "timerInput";
+                    inpTimer.className = "timerInput timerValue";
                     inpTimer.value = formatHHMMSS(n.timerSeconds || 0);
                     inpTimer.placeholder = "hh:mm:ss";
                     inpTimer.onchange = () => {
@@ -1466,7 +1571,19 @@
                         n.timerStartedAt = (n.status === "doing" && secs > 0) ? Date.now() : null;
                         save(); renderAll();
                     };
-                    tdTimer.append(inpTimer);
+                    const timerSetRow = document.createElement("div");
+                    timerSetRow.append(inpTimer);
+
+                    const timerDisplay = document.createElement("div");
+                    timerDisplay.className = "timerDisplay timerValue";
+                    registerTimerEl(n.id, timerDisplay, "table");
+                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(n));
+                    timerDisplay.classList.toggle("expired", n.timerSeconds > 0 && n.timerStartedAt && remainingSeconds(n) === 0);
+
+                    const timerCurrentRow = document.createElement("div");
+                    timerCurrentRow.append(timerDisplay);
+
+                    tdTimer.append(timerSetRow, timerCurrentRow);
 
                     const tdStatus = document.createElement("td");
                     tdStatus.classList.add("td-center");
@@ -1531,7 +1648,7 @@
                     delBtn.onclick = () => deleteNoteById(n.id);
                     tdDel.append(delBtn);
 
-                    tr.append(tdId, tdType, tdLock, tdUnlock, tdPlan, tdTimer, tdStatus, tdTitle, tdText, tdOps, tdDel);
+                    tr.append(tdId, tdType, tdLock, tdPlan, tdTimer, tdStatus, tdTitle, tdText, tdOps, tdDel);
                     tableBody.append(tr);
                 }
             }
@@ -1539,6 +1656,7 @@
             // ===== render: daily（最低限） =====
             function renderDaily() {
                 dailyBody.innerHTML = "";
+                clearTimerElsByScope("daily");
                 for (const d of dailyItems) {
                     const tr = document.createElement("tr");
 
@@ -1556,13 +1674,18 @@
                     tdId.append(idBtn);
 
                     const tdLock = document.createElement("td");
-                    tdLock.classList.add("td-center");
+                    tdLock.classList.add("td-stack");
                     const sel = buildLockSelect(d.lockState);
-                    tdLock.append(sel);
 
-                    const tdUnlock = document.createElement("td");
                     const inpUnlock = buildUnlockInput(d.unlockTasks);
-                    tdUnlock.append(inpUnlock);
+
+                    const lockRow = document.createElement("div");
+                    lockRow.append(sel);
+
+                    const unlockRow = document.createElement("div");
+                    unlockRow.append(inpUnlock);
+
+                    tdLock.append(lockRow, unlockRow);
 
                     const applyUnlockEnabled = () => {
                         const locked = (sel.value === "lock");
@@ -1586,10 +1709,10 @@
                     tdPlan.append(inpPlan);
 
                     const tdTimer = document.createElement("td");
-                    tdTimer.classList.add("td-center");
+                    tdTimer.classList.add("td-stack", "td-center");
                     const inpTimer = document.createElement("input");
                     inpTimer.type = "text";
-                    inpTimer.className = "timerInput";
+                    inpTimer.className = "timerInput timerValue";
                     inpTimer.value = formatHHMMSS(d.timerSeconds || 0);
                     inpTimer.placeholder = "hh:mm:ss";
                     inpTimer.onchange = () => {
@@ -1602,7 +1725,19 @@
                         d.timerSeconds = secs;
                         save();
                     };
-                    tdTimer.append(inpTimer);
+                    const timerSetRow = document.createElement("div");
+                    timerSetRow.append(inpTimer);
+
+                    const timerDisplay = document.createElement("div");
+                    timerDisplay.className = "timerDisplay timerValue";
+                    registerTimerEl(d.id, timerDisplay, "daily");
+                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(d));
+                    timerDisplay.classList.toggle("expired", d.timerSeconds > 0 && d.timerStartedAt && remainingSeconds(d) === 0);
+
+                    const timerCurrentRow = document.createElement("div");
+                    timerCurrentRow.append(timerDisplay);
+
+                    tdTimer.append(timerSetRow, timerCurrentRow);
 
                     const tdTitle = document.createElement("td");
                     const inpTitle = document.createElement("input");
@@ -1630,7 +1765,7 @@
                     };
                     tdDel.append(delBtn);
 
-                    tr.append(tdId, tdLock, tdUnlock, tdPlan, tdTimer, tdTitle, tdText, tdDel);
+                    tr.append(tdId, tdLock, tdPlan, tdTimer, tdTitle, tdText, tdDel);
                     dailyBody.append(tr);
                 }
             }
