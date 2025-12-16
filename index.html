@@ -1,0 +1,1687 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ドラッグメモ＋表＋デイリー登録（表中央揃え＋受注ロック＋連動番号）</title>
+
+    <style>
+        :root {
+            --bg: #1f232a;
+            --panel: #2a303aee;
+            --text: #e9eef6;
+            --muted: #9aa6b2;
+            --border: #3b4656;
+            --accent: #4aa3ff;
+            --danger: #ff5b6b;
+            --h-all: rgba(42,48,58,0.93);
+            --h-active: rgba(120, 110, 40, 0.42); /* 未完了/受注中 */
+            --h-done: rgba(28, 120, 98, 0.35); /* 完了 */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui,"Noto Sans JP",sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* ===== header ===== */
+        header {
+            position: fixed;
+            inset: 12px 12px auto 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 12px;
+            background: var(--h-all);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            z-index: 1000;
+            transition: background-color .15s ease;
+        }
+
+            header.h-all {
+                background: var(--h-all);
+            }
+
+            header.h-active {
+                background: var(--h-active);
+            }
+
+            header.h-done {
+                background: var(--h-done);
+            }
+
+        .title {
+            font-weight: 900;
+            white-space: nowrap
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+            margin-right: auto;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        button {
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #384457;
+            color: var(--text);
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+            button:disabled {
+                opacity: .45;
+                cursor: not-allowed
+            }
+
+            button.accent {
+                background: #2f73ff;
+                border-color: #2f73ff
+            }
+
+            button.danger {
+                border-color: var(--danger)
+            }
+
+        #resetAllBtn {
+            padding: 8px 10px;
+        }
+
+        /* ===== view/filter ===== */
+        .viewBox, .filterBox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            background: #0003;
+            border: 1px solid var(--border);
+        }
+
+            .viewBox .label, .filterBox .label {
+                font-size: 12px;
+                font-weight: 900;
+                color: var(--muted);
+                white-space: nowrap;
+            }
+
+        .viewBtns, .filterBtns {
+            display: flex;
+            gap: 4px;
+        }
+
+            .viewBtns button, .filterBtns button {
+                padding: 6px 10px;
+                font-size: 12px;
+                border-radius: 10px;
+                background: #2f3a4a;
+                border: 1px solid var(--border);
+            }
+
+                .viewBtns button.active, .filterBtns button.active {
+                    background: #2f73ff;
+                    border-color: #2f73ff;
+                }
+
+        /* ===== points ===== */
+        .points {
+            display: flex;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #0003;
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+            .points .label {
+                font-size: 12px;
+                color: var(--muted)
+            }
+
+            .points .value {
+                font-weight: 900
+            }
+
+        /* ===== board ===== */
+        #board {
+            position: fixed;
+            inset: 0;
+            padding-top: 86px;
+        }
+
+        /* ===== note ===== */
+        .note {
+            position: absolute;
+            width: 290px;
+            min-height: 300px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px #0006;
+            overflow: hidden;
+            touch-action: none;
+            will-change: transform, opacity, filter;
+        }
+
+            .note.type-temp {
+                background: #2a3a4d;
+                border-color: #46556a;
+            }
+
+            .note.type-daily {
+                background: #254a3b;
+                border-color: #3f7a63;
+            }
+
+            .note.locked {
+                background: #5a1f24 !important;
+                border-color: #ff5b6b !important;
+            }
+
+            .note.unlocked {
+                background: #5b4b14 !important;
+                border-color: #ffd84a !important;
+            }
+
+        .bar {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            padding: 10px;
+            background: #0003;
+            border-bottom: 1px solid var(--border);
+            cursor: grab;
+        }
+
+        .left {
+            margin-right: auto;
+            min-width: 0
+        }
+
+        .nlabel {
+            font-size: 13px;
+            font-weight: 900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .meta {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            flex-wrap: wrap
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #0003;
+            border: 1px solid var(--border);
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .todo {
+            color: #ffd7a8
+        }
+
+        .doing {
+            color: #bcd8ff
+        }
+
+        .done {
+            color: #b6ffe8
+        }
+
+        .typeTemp {
+            color: #ffd1d1
+        }
+
+        .typeDaily {
+            color: #c7ffda
+        }
+
+        .idtag {
+            color: #c8d6ff
+        }
+
+        .lockBadge {
+            color: #ffb3ba
+        }
+
+        .unlockBadge {
+            color: #ffe07d
+        }
+
+        .coinDot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: #ffd84a;
+            border: 1px solid #0005;
+            box-shadow: 0 2px 6px #0007 inset;
+            flex: 0 0 auto;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            padding: 10px
+        }
+
+            .actions button {
+                flex: 1
+            }
+
+        .noteTitle {
+            width: calc(100% - 16px);
+            margin: 8px 8px 0;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #0003;
+            color: var(--text);
+            font-weight: 900;
+            outline: none;
+        }
+
+        .noteText {
+            width: calc(100% - 16px);
+            margin: 8px;
+            height: 140px;
+            resize: vertical;
+            background: #0003;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            padding: 10px;
+            outline: none;
+        }
+
+        /* 右上（削除ボタン＋連動番号） */
+        .rightStack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .mini {
+            font-size: 12px;
+            padding: 6px 10px;
+            white-space: nowrap;
+            min-width: 64px;
+            text-align: center;
+            border-radius: 10px;
+        }
+
+        .linkTag {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(200,214,255,.35);
+            background: rgba(0,0,0,.22);
+            color: #c8d6ff;
+            user-select: none;
+        }
+
+        /* ★受注中スタンプ */
+        .stamp {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 2px solid rgba(190,220,255,.85);
+            background: rgba(60,110,160,.22);
+            color: #d8ecff;
+            font-weight: 1000;
+            letter-spacing: .08em;
+            transform: rotate(-10deg);
+            opacity: .92;
+            pointer-events: none;
+            box-shadow: 0 10px 26px #0005;
+            text-shadow: 0 2px 10px #0008;
+        }
+
+        /* ★完了スタンプ（大きく・濃い赤・印鑑風） */
+        .stamp-done {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 3px solid rgba(210, 40, 50, .95);
+            background: rgba(210, 40, 50, .10);
+            color: rgba(240, 70, 80, .98);
+            font-weight: 1100;
+            letter-spacing: .12em;
+            font-size: 22px;
+            transform: rotate(-12deg);
+            opacity: .96;
+            pointer-events: none;
+            box-shadow: 0 14px 32px #0006;
+            text-shadow: 0 2px 12px #0008;
+            filter: saturate(1.25) contrast(1.1);
+        }
+
+            .stamp-done::before {
+                content: "";
+                position: absolute;
+                inset: -6px;
+                border: 2px solid rgba(210,40,50,.65);
+                border-radius: 12px;
+                transform: rotate(2deg);
+                opacity: .75;
+            }
+
+        /* ===== panels ===== */
+        .panel {
+            position: fixed;
+            inset: 86px 12px 12px 12px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hidden {
+            display: none !important
+        }
+
+        .panelWrap {
+            overflow: auto;
+            padding: 10px 12px 12px
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #2b3340;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            z-index: 1;
+        }
+
+        tbody td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(59,70,86,.6);
+            vertical-align: middle; /* ★中身の縦位置も整える */
+        }
+
+        tr:hover td {
+            background: rgba(255,255,255,.03);
+        }
+
+        .cell-id {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            color: #c8d6ff;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ★セル内中央揃えユーティリティ */
+        .td-center {
+            text-align: center;
+        }
+
+            .td-center > * {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+        /* ★操作ボタンをセル内で中央寄せ＋見た目をいい感じに */
+        .opsCell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tableBtn {
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 10px;
+            min-width: 92px; /* ★変な横幅にならないよう揃える */
+            text-align: center;
+        }
+
+            .tableBtn.accent {
+                background: #2f73ff;
+                border-color: #2f73ff;
+            }
+
+        .idCopyBtn {
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 10px;
+            background: #2f3a4a;
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+            .idCopyBtn.copied {
+                background: #2f73ff;
+                border-color: #2f73ff;
+            }
+
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 10px;
+            background: #0003;
+            border: 1px solid rgba(59,70,86,.85);
+            color: var(--text);
+            outline: none;
+        }
+
+        .tableContent {
+            width: 100%;
+            height: 4.5em;
+            line-height: 1.5em;
+            resize: none;
+            overflow: auto;
+            background: #0003;
+            border: 1px solid rgba(59,70,86,.85);
+            border-radius: 10px;
+            color: var(--text);
+            padding: 6px 8px;
+            outline: none;
+        }
+
+        .unlockInput:disabled {
+            opacity: 0.35;
+            filter: grayscale(0.4);
+            cursor: not-allowed;
+        }
+
+        .statusPill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(59,70,86,.7);
+            background: #0003;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+            .statusPill.todo {
+                color: #ffd7a8;
+            }
+
+            .statusPill.doing {
+                color: #bcd8ff;
+            }
+
+            .statusPill.done {
+                color: #b6ffe8;
+            }
+
+        /* ===== FX ===== */
+        #fxLayer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5000;
+        }
+
+        .fx-coin {
+            position: fixed;
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            background: #ffd84a;
+            border: 2px solid #0004;
+            box-shadow: 0 8px 22px #0008;
+            transform: translate(-50%,-50%);
+        }
+
+        /* selection block (except inputs) */
+        .bar, .nlabel, .meta, .badge, header, .title, .hint {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <header id="appHeader" class="h-active">
+        <div class="title">ドラッグメモ</div>
+        <button id="resetAllBtn" class="danger" title="危ないので左に隔離したっす">全リセット</button>
+
+        <div class="hint">表はセル内中央揃え＋受注ロック＋連動番号表示っす</div>
+
+        <div class="viewBox" title="表示を切り替えるっす">
+            <div class="label">表示</div>
+            <div class="viewBtns">
+                <button id="viewMemoBtn">メモ</button>
+                <button id="viewTableBtn">表</button>
+                <button id="viewDailyBtn">デイリー登録</button>
+            </div>
+        </div>
+
+        <div class="filterBox" title="※メモ表示のときだけ効くっす">
+            <div class="label">状態</div>
+            <div class="filterBtns">
+                <button data-filter="all">すべて</button>
+                <button data-filter="active">未完了/受注中</button>
+                <button data-filter="done">完了</button>
+            </div>
+        </div>
+
+        <div class="points">
+            <div class="label">獲得</div>
+            <div id="totalPoints" class="value">0</div>
+        </div>
+
+        <button id="addMemoBtn" class="accent">＋メモ</button>
+        <button id="addDailyBtn" class="accent">＋デイリー追加</button>
+        <button id="dailyUpdateBtn">デイリー更新</button>
+
+        <button id="csvSaveBtn">CSV保存</button>
+        <button id="csvLoadBtn">CSV読込</button>
+        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+    </header>
+
+    <div id="board"></div>
+
+    <div id="tablePanel" class="panel hidden">
+        <div class="panelWrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:180px;">ID</th>
+                        <th style="width:140px;">タスクの種類</th>
+                        <th style="width:140px;">ロック状態</th>
+                        <th style="width:260px;">ロック解除タスク（IDカンマ区切り）</th>
+                        <th style="width:120px;">獲得ポイント</th>
+                        <th style="width:110px;">状態</th>
+                        <th style="width:220px;">タイトル</th>
+                        <th>内容</th>
+                        <th style="width:260px;">操作</th>
+                        <th style="width:90px;">削除</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="dailyPanel" class="panel hidden">
+        <div class="panelWrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:180px;">ID（コピー）</th>
+                        <th style="width:140px;">ロック状態</th>
+                        <th style="width:260px;">ロック解除タスク（IDをカンマ区切り）</th>
+                        <th style="width:120px;">獲得ポイント</th>
+                        <th style="width:220px;">タイトル</th>
+                        <th>内容</th>
+                        <th style="width:90px;">削除</th>
+                    </tr>
+                </thead>
+                <tbody id="dailyBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="fxLayer"></div>
+
+    <script>
+        (() => {
+            const appHeader = document.getElementById("appHeader");
+
+            const board = document.getElementById("board");
+            const tablePanel = document.getElementById("tablePanel");
+            const dailyPanel = document.getElementById("dailyPanel");
+            const tableBody = document.getElementById("tableBody");
+            const dailyBody = document.getElementById("dailyBody");
+            const fxLayer = document.getElementById("fxLayer");
+
+            const totalPointsEl = document.getElementById("totalPoints");
+            const addMemoBtn = document.getElementById("addMemoBtn");
+            const addDailyBtn = document.getElementById("addDailyBtn");
+            const dailyUpdateBtn = document.getElementById("dailyUpdateBtn");
+            const resetAllBtn = document.getElementById("resetAllBtn");
+
+            const csvSaveBtn = document.getElementById("csvSaveBtn");
+            const csvLoadBtn = document.getElementById("csvLoadBtn");
+            const csvFileInput = document.getElementById("csvFileInput");
+
+            const viewMemoBtn = document.getElementById("viewMemoBtn");
+            const viewTableBtn = document.getElementById("viewTableBtn");
+            const viewDailyBtn = document.getElementById("viewDailyBtn");
+            const filterBtns = [...document.querySelectorAll(".filterBtns button")];
+
+            const STORE = "memo_table_daily_lock_copy_csv_order_active_v3";
+            const plans = [10, 30, 50];
+
+            let notes = [];
+            let dailyItems = [];
+            let totalPoints = 0;
+            let z = 10;
+            let viewMode = "memo";
+            let filterMode = "active";
+
+            const busyMap = new Map();
+
+            // ★連動グループ番号
+            let groupNoById = new Map(); // id -> number
+
+            const save = () => localStorage.setItem(STORE, JSON.stringify({ notes, dailyItems, totalPoints, z, viewMode, filterMode }));
+
+            function migrateNote(n) {
+                if (!("status" in n)) {
+                    if (n.done === true) n.status = "done";
+                    else n.status = "todo";
+                }
+                n.done = (n.status === "done");
+
+                if (!("lockState" in n)) n.lockState = "none";
+                if (!("unlockTasks" in n)) n.unlockTasks = "";
+                if (!("type" in n)) n.type = "temp";
+                if (!("title" in n)) n.title = "";
+                if (!("text" in n)) n.text = "";
+                if (!("plan" in n)) n.plan = 0;
+                if (!("x" in n) || !("y" in n)) {
+                    const p = randomPos();
+                    n.x = p.x; n.y = p.y;
+                }
+                if (!("z" in n)) n.z = ++z;
+            }
+
+            const load = () => {
+                const d = JSON.parse(localStorage.getItem(STORE) || "null");
+                if (!d) return;
+                notes = d.notes || [];
+                dailyItems = d.dailyItems || [];
+                totalPoints = d.totalPoints || 0;
+                z = d.z || 10;
+                viewMode = d.viewMode || "memo";
+                filterMode = d.filterMode || "active";
+
+                for (const n of notes) migrateNote(n);
+                for (const it of dailyItems) {
+                    if (!("lockState" in it)) it.lockState = "none";
+                    if (!("unlockTasks" in it)) it.unlockTasks = "";
+                    if (!("title" in it)) it.title = "";
+                    if (!("text" in it)) it.text = "";
+                    if (!("plan" in it)) it.plan = 0;
+                }
+            };
+
+            const genMemoId = () => `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+            const genDailyId = () => `d_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+
+            const center = (el) => {
+                const r = el.getBoundingClientRect();
+                return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+            };
+
+            function randomPos() {
+                const r = board.getBoundingClientRect();
+                const pad = 16, w = 290, h = 300;
+                return {
+                    x: Math.floor(pad + Math.random() * Math.max(1, r.width - w - pad)),
+                    y: Math.floor(pad + Math.random() * Math.max(1, r.height - h - pad))
+                };
+            }
+
+            const coinCountFromPoints = (p) => Math.max(1, Math.min(8, Math.floor(Number(p || 0) / 10) || 1));
+
+            function setHeaderBG() {
+                let m = "all";
+                if (viewMode === "memo") m = filterMode;
+
+                appHeader.classList.remove("h-all", "h-active", "h-done");
+                appHeader.classList.add(
+                    m === "active" ? "h-active" :
+                        m === "done" ? "h-done" :
+                            "h-all"
+                );
+            }
+
+            function updateViewUI() {
+                viewMemoBtn.classList.toggle("active", viewMode === "memo");
+                viewTableBtn.classList.toggle("active", viewMode === "table");
+                viewDailyBtn.classList.toggle("active", viewMode === "daily");
+
+                board.classList.toggle("hidden", viewMode !== "memo");
+                tablePanel.classList.toggle("hidden", viewMode !== "table");
+                dailyPanel.classList.toggle("hidden", viewMode !== "daily");
+
+                const fb = document.querySelector(".filterBox");
+                if (viewMode !== "memo") {
+                    fb.style.opacity = "0.45";
+                    fb.style.pointerEvents = "none";
+                } else {
+                    fb.style.opacity = "1";
+                    fb.style.pointerEvents = "auto";
+                }
+
+                addMemoBtn.disabled = false;
+                addDailyBtn.disabled = (viewMode !== "daily");
+                dailyUpdateBtn.disabled = (dailyItems.length === 0);
+
+                const csvEnabled = (viewMode === "daily");
+                csvSaveBtn.disabled = !csvEnabled;
+                csvLoadBtn.disabled = !csvEnabled;
+
+                setHeaderBG();
+            }
+
+            function updateFilterUI() {
+                filterBtns.forEach(b => b.classList.toggle("active", b.dataset.filter === filterMode));
+                setHeaderBG();
+            }
+
+            function getVisibleNotes() {
+                return notes.filter(n => {
+                    if (filterMode === "all") return true;
+                    if (filterMode === "done") return n.status === "done";
+                    return (n.status === "todo" || n.status === "doing"); // active
+                });
+            }
+
+            function findNote(id) { return notes.find(n => n.id === id); }
+
+            function setPlan(obj, v) {
+                const n = Number(v);
+                if (!Number.isFinite(n)) return;
+                obj.plan = Math.max(0, Math.floor(n));
+            }
+
+            function isBusy(id) { return busyMap.get(id) === true; }
+            function lockForFx(id, ms = 1400) {
+                busyMap.set(id, true);
+                window.setTimeout(() => busyMap.delete(id), ms);
+            }
+
+            function parseUnlockIds(str) {
+                return (str || "").split(",").map(s => s.trim()).filter(Boolean);
+            }
+
+            function isUnlockSatisfied(note) {
+                if (note.lockState !== "lock") return true;
+                const ids = parseUnlockIds(note.unlockTasks);
+                if (ids.length === 0) return false;
+                for (const id of ids) {
+                    const t = findNote(id);
+                    if (!t || t.status !== "done") return false;
+                }
+                return true;
+            }
+
+            function statusLabel(n) {
+                if (n.status === "todo") return { text: "未完了", cls: "todo" };
+                if (n.status === "doing") return { text: "受注中", cls: "doing" };
+                return { text: "完了", cls: "done" };
+            }
+
+            function deleteNoteById(id) {
+                const n = findNote(id);
+                if (!n) return;
+
+                const isDone = (n.status === "done");
+                const msg =
+                    isDone
+                        ? `このタスクは完了済みっす。\n削除すると獲得ポイントが ${n.plan} 減るっす。\n本当に削除するっすか？`
+                        : `このタスクを削除するっすか？`;
+
+                if (!confirm(msg)) return;
+
+                if (isDone) {
+                    totalPoints = Math.max(0, totalPoints - (Number(n.plan) || 0));
+                }
+                notes = notes.filter(x => x.id !== id);
+                save();
+                renderAll();
+            }
+
+            async function copyToClipboard(text) {
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    }
+                } catch (e) { }
+                try {
+                    const ta = document.createElement("textarea");
+                    ta.value = text;
+                    ta.style.position = "fixed";
+                    ta.style.left = "-9999px";
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    const ok = document.execCommand("copy");
+                    ta.remove();
+                    return ok;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            // ===== FX =====
+            function flyToPoints(fromEl, toEl, count, baseCurve = 26) {
+                const f = center(fromEl), t = center(toEl);
+                const dx = t.x - f.x, dy = t.y - f.y;
+
+                for (let i = 0; i < count; i++) {
+                    const c = document.createElement("div");
+                    c.className = "fx-coin";
+                    fxLayer.appendChild(c);
+                    c.style.left = f.x + "px";
+                    c.style.top = f.y + "px";
+
+                    const curve = (Math.random() - 0.5) * baseCurve;
+                    const midX = dx * 0.55;
+                    const midY = dy * 0.55 - curve;
+                    const driftX = (Math.random() - 0.5) * 14;
+                    const driftY = (Math.random() - 0.5) * 10;
+
+                    c.animate([
+                        { transform: `translate(-50%,-50%) translate(${driftX}px,${driftY}px) scale(1)`, opacity: 1 },
+                        { offset: 0.65, transform: `translate(-50%,-50%) translate(${midX + driftX}px,${midY + driftY}px) scale(1.05)`, opacity: 1 },
+                        { transform: `translate(-50%,-50%) translate(${dx + driftX}px,${dy + driftY}px) scale(0.72)`, opacity: 0 }
+                    ], {
+                        duration: 980 + Math.random() * 420,
+                        easing: "cubic-bezier(.25,.8,.25,1)"
+                    }).onfinish = () => c.remove();
+                }
+            }
+            function disperseFromPoints(originEl, count) {
+                const o = center(originEl);
+                for (let i = 0; i < count; i++) {
+                    const c = document.createElement("div");
+                    c.className = "fx-coin";
+                    fxLayer.appendChild(c);
+
+                    const startJx = (Math.random() - 0.5) * 18;
+                    const startJy = (Math.random() - 0.5) * 14;
+                    c.style.left = (o.x + startJx) + "px";
+                    c.style.top = (o.y + startJy) + "px";
+
+                    const vx = (Math.random() - 0.5) * 140;
+                    const vy = -(60 + Math.random() * 120);
+                    const rot = (Math.random() - 0.5) * 80;
+
+                    c.animate([
+                        { transform: "translate(-50%,-50%) scale(1) rotate(0deg)", opacity: 1, filter: "blur(0px)" },
+                        { offset: 0.55, transform: `translate(-50%,-50%) translate(${vx * 0.55}px,${vy * 0.55}px) scale(0.92) rotate(${rot * 0.6}deg)`, opacity: 0.75, filter: "blur(0.2px)" },
+                        { transform: `translate(-50%,-50%) translate(${vx}px,${vy}px) scale(0.5) rotate(${rot}deg)`, opacity: 0, filter: "blur(1.2px)" }
+                    ], {
+                        duration: 820 + Math.random() * 380,
+                        easing: "cubic-bezier(.2,.9,.2,1)"
+                    }).onfinish = () => c.remove();
+                }
+            }
+
+            // ===== 連動グループ番号（ロック紐づけを同じ番号に） =====
+            function computeLinkGroups() {
+                const ids = new Set(notes.map(n => n.id));
+                const adj = new Map();
+                for (const id of ids) adj.set(id, new Set());
+
+                // ロックのunlockTasksでエッジを張る（相互に繋ぐ）
+                for (const n of notes) {
+                    const u = parseUnlockIds(n.unlockTasks);
+                    if (u.length === 0) continue;
+                    for (const tid of u) {
+                        if (!ids.has(tid)) continue;
+                        adj.get(n.id).add(tid);
+                        adj.get(tid).add(n.id);
+                    }
+                }
+
+                // BFSで連結成分に番号付け（サイズ2以上 or lock/参照があるものだけ表示したいので後で条件）
+                const visited = new Set();
+                const map = new Map();
+                let groupNo = 1;
+
+                for (const start of ids) {
+                    if (visited.has(start)) continue;
+
+                    // 成分収集
+                    const q = [start];
+                    const comp = [];
+                    visited.add(start);
+
+                    while (q.length) {
+                        const cur = q.shift();
+                        comp.push(cur);
+                        for (const nx of adj.get(cur)) {
+                            if (!visited.has(nx)) {
+                                visited.add(nx);
+                                q.push(nx);
+                            }
+                        }
+                    }
+
+                    // 「紐づきがある成分」だけ番号を振る（単体は番号なし）
+                    const hasEdge = comp.some(id => (adj.get(id).size > 0));
+                    if (hasEdge) {
+                        for (const id of comp) map.set(id, groupNo);
+                        groupNo++;
+                    }
+                }
+
+                groupNoById = map;
+            }
+
+            // ===== 状態遷移（受注もロックを弾く） =====
+            function acceptOrder(n) {
+                if (isBusy(n.id)) return;
+                if (n.status !== "todo") return;
+
+                const lockedNow = (n.lockState === "lock") && !isUnlockSatisfied(n);
+                if (lockedNow) {
+                    alert("ロック解除条件が未達っす（指定IDが全部完了してないっす）");
+                    return;
+                }
+
+                n.status = "doing";
+                n.done = false;
+                save(); renderAll();
+            }
+            function cancelOrder(n) {
+                if (isBusy(n.id)) return;
+                if (n.status !== "doing") return;
+                n.status = "todo";
+                n.done = false;
+                save(); renderAll();
+            }
+            function completeTask(n, fxFromEl) {
+                if (isBusy(n.id)) return;
+                if (n.status !== "doing") return;
+
+                const lockedNow = (n.lockState === "lock") && !isUnlockSatisfied(n);
+                if (lockedNow) {
+                    alert("ロック解除条件が未達っす（指定IDが全部完了してないっす）");
+                    return;
+                }
+
+                lockForFx(n.id);
+
+                const coins = coinCountFromPoints(n.plan);
+                flyToPoints(fxFromEl, totalPointsEl, coins, 26);
+
+                n.status = "done";
+                n.done = true;
+                totalPoints += (Number(n.plan) || 0);
+
+                save(); renderAll();
+            }
+            function undoCompleteToTodo(n) {
+                if (isBusy(n.id)) return;
+                if (n.status !== "done") return;
+
+                lockForFx(n.id);
+
+                const coins = coinCountFromPoints(n.plan);
+                disperseFromPoints(totalPointsEl, coins);
+
+                n.status = "todo";
+                n.done = false;
+                totalPoints = Math.max(0, totalPoints - (Number(n.plan) || 0));
+
+                save(); renderAll();
+            }
+
+            function buildLockSelect(current) {
+                const sel = document.createElement("select");
+                const optNone = document.createElement("option");
+                optNone.value = "none"; optNone.textContent = "なし";
+                const optLock = document.createElement("option");
+                optLock.value = "lock"; optLock.textContent = "ロック";
+                sel.append(optNone, optLock);
+                sel.value = current || "none";
+                return sel;
+            }
+            function buildUnlockInput(current) {
+                const inp = document.createElement("input");
+                inp.type = "text";
+                inp.placeholder = "例: m_xxx, d_yyy";
+                inp.value = current || "";
+                inp.className = "unlockInput";
+                return inp;
+            }
+
+            // ===== render: notes =====
+            function renderNotes() {
+                board.innerHTML = "";
+                updateFilterUI();
+
+                const visible = getVisibleNotes();
+                for (const n of visible) {
+                    const el = document.createElement("div");
+
+                    const unlocked = isUnlockSatisfied(n);
+                    const lockedNow = (n.lockState === "lock") && !unlocked;
+
+                    el.className = "note " + (n.type === "daily" ? "type-daily" : "type-temp");
+                    if (n.lockState === "lock") {
+                        el.classList.add(lockedNow ? "locked" : "unlocked");
+                    }
+
+                    el.style.left = n.x + "px";
+                    el.style.top = n.y + "px";
+                    el.style.zIndex = n.z;
+
+                    const bar = document.createElement("div");
+                    bar.className = "bar";
+
+                    const left = document.createElement("div");
+                    left.className = "left";
+
+                    const titleLabel = document.createElement("div");
+                    titleLabel.className = "nlabel";
+                    titleLabel.textContent = n.title?.trim() ? n.title : "（無題）";
+
+                    const meta = document.createElement("div");
+                    meta.className = "meta";
+
+                    const stInfo = statusLabel(n);
+                    const st = document.createElement("span");
+                    st.className = "badge " + stInfo.cls;
+                    st.textContent = stInfo.text;
+
+                    const tp = document.createElement("span");
+                    tp.className = "badge " + (n.type === "daily" ? "typeDaily" : "typeTemp");
+                    tp.textContent = (n.type === "daily") ? "デイリー" : "臨時";
+
+                    const plan = document.createElement("span");
+                    plan.className = "badge";
+                    const dot = document.createElement("span");
+                    dot.className = "coinDot";
+                    const txt = document.createElement("span");
+                    txt.textContent = `+${n.plan}`;
+                    plan.append(dot, txt);
+
+                    const idb = document.createElement("span");
+                    idb.className = "badge idtag";
+                    idb.textContent = n.id;
+
+                    meta.append(st, tp, plan, idb);
+
+                    if (n.lockState === "lock") {
+                        const lb = document.createElement("span");
+                        lb.className = "badge " + (lockedNow ? "lockBadge" : "unlockBadge");
+                        lb.textContent = lockedNow ? "ロック中" : "解除OK";
+                        meta.append(lb);
+                    }
+
+                    left.append(titleLabel, meta);
+
+                    // 右側（削除＋連動番号）
+                    const right = document.createElement("div");
+                    right.className = "rightStack";
+
+                    const del = document.createElement("button");
+                    del.className = "mini danger";
+                    del.textContent = "削除";
+                    del.onclick = () => deleteNoteById(n.id);
+                    right.append(del);
+
+                    const gno = groupNoById.get(n.id);
+                    if (gno) {
+                        const tag = document.createElement("div");
+                        tag.className = "linkTag";
+                        tag.textContent = `連動#${gno}`;
+                        right.append(tag);
+                    }
+
+                    bar.append(left, right);
+                    el.append(bar);
+
+                    const actions = document.createElement("div");
+                    actions.className = "actions";
+
+                    if (n.status === "todo") {
+                        const acceptBtn = document.createElement("button");
+                        acceptBtn.textContent = "受注";
+                        acceptBtn.className = "accent";
+                        acceptBtn.onclick = () => acceptOrder(n);
+                        actions.append(acceptBtn);
+                    } else if (n.status === "doing") {
+                        const completeBtn = document.createElement("button");
+                        completeBtn.textContent = "完了";
+                        completeBtn.className = "accent";
+                        completeBtn.onclick = () => completeTask(n, completeBtn);
+
+                        const cancelBtn = document.createElement("button");
+                        cancelBtn.textContent = "受注取消";
+                        cancelBtn.className = "accent";
+                        cancelBtn.onclick = () => cancelOrder(n);
+
+                        actions.append(completeBtn, cancelBtn);
+                    } else {
+                        const undoBtn = document.createElement("button");
+                        undoBtn.textContent = "完了取消（未完了へ）";
+                        undoBtn.className = "accent";
+                        undoBtn.onclick = () => undoCompleteToTodo(n);
+                        actions.append(undoBtn);
+                    }
+                    el.append(actions);
+
+                    const titleInput = document.createElement("input");
+                    titleInput.className = "noteTitle";
+                    titleInput.placeholder = "タイトル";
+                    titleInput.value = n.title || "";
+                    titleInput.oninput = () => {
+                        n.title = titleInput.value;
+                        titleLabel.textContent = n.title?.trim() ? n.title : "（無題）";
+                        save();
+                    };
+                    el.append(titleInput);
+
+                    const ta = document.createElement("textarea");
+                    ta.className = "noteText";
+                    ta.value = n.text || "";
+                    ta.oninput = () => { n.text = ta.value; save(); };
+                    el.append(ta);
+
+                    // スタンプ
+                    if (n.status === "doing") {
+                        const s = document.createElement("div");
+                        s.className = "stamp";
+                        s.textContent = "受注中";
+                        el.append(s);
+                    }
+                    if (n.status === "done") {
+                        const s = document.createElement("div");
+                        s.className = "stamp-done";
+                        s.textContent = "完了!!";
+                        el.append(s);
+                    }
+
+                    // drag
+                    bar.onpointerdown = (e) => {
+                        if (e.target.closest("button")) return;
+                        if (window.getSelection) window.getSelection().removeAllRanges();
+
+                        const sx = e.clientX, sy = e.clientY;
+                        const bx = n.x, by = n.y;
+                        z++; n.z = z;
+                        el.style.zIndex = n.z;
+
+                        const move = (ev) => {
+                            n.x = bx + (ev.clientX - sx);
+                            n.y = by + (ev.clientY - sy);
+                            el.style.left = n.x + "px";
+                            el.style.top = n.y + "px";
+                        };
+
+                        window.addEventListener("pointermove", move);
+                        window.addEventListener("pointerup", () => {
+                            window.removeEventListener("pointermove", move);
+                            save();
+                        }, { once: true });
+                    };
+
+                    board.append(el);
+                }
+            }
+
+            // ===== render: table =====
+            function renderTable() {
+                tableBody.innerHTML = "";
+
+                for (const n of notes) {
+                    const tr = document.createElement("tr");
+
+                    const tdId = document.createElement("td");
+                    tdId.className = "cell-id";
+                    tdId.title = n.id;
+                    tdId.textContent = n.id;
+
+                    const tdType = document.createElement("td");
+                    tdType.classList.add("td-center");
+                    const typeBtn = document.createElement("button");
+                    typeBtn.textContent = (n.type === "daily") ? "デイリー" : "臨時";
+                    typeBtn.className = "tableBtn";
+                    typeBtn.onclick = () => {
+                        n.type = (n.type === "daily") ? "temp" : "daily";
+                        save(); renderAll();
+                    };
+                    tdType.append(typeBtn);
+
+                    const tdLock = document.createElement("td");
+                    tdLock.classList.add("td-center");
+                    const sel = buildLockSelect(n.lockState);
+                    tdLock.append(sel);
+
+                    const tdUnlock = document.createElement("td");
+                    const inpUnlock = buildUnlockInput(n.unlockTasks);
+                    tdUnlock.append(inpUnlock);
+
+                    const applyUnlockEnabled = () => {
+                        const locked = (sel.value === "lock");
+                        inpUnlock.disabled = !locked;
+                        if (!locked) {
+                            inpUnlock.value = "";
+                            n.unlockTasks = "";
+                        }
+                    };
+                    applyUnlockEnabled();
+
+                    sel.onchange = () => {
+                        n.lockState = sel.value;
+                        applyUnlockEnabled();
+                        save(); renderAll();
+                    };
+                    inpUnlock.oninput = () => {
+                        if (sel.value !== "lock") return;
+                        n.unlockTasks = inpUnlock.value;
+                        save(); renderAll();
+                    };
+
+                    const tdPlan = document.createElement("td");
+                    tdPlan.classList.add("td-center");
+                    const inpPlan = document.createElement("input");
+                    inpPlan.type = "number";
+                    inpPlan.min = "0";
+                    inpPlan.step = "1";
+                    inpPlan.value = String(n.plan ?? 0);
+                    inpPlan.onchange = () => {
+                        setPlan(n, inpPlan.value);
+                        save(); renderAll();
+                    };
+                    tdPlan.append(inpPlan);
+
+                    const tdStatus = document.createElement("td");
+                    tdStatus.classList.add("td-center");
+                    const stInfo = statusLabel(n);
+                    const pill = document.createElement("span");
+                    pill.className = "statusPill " + stInfo.cls;
+                    pill.textContent = stInfo.text;
+                    tdStatus.append(pill);
+
+                    const tdTitle = document.createElement("td");
+                    const inpTitle = document.createElement("input");
+                    inpTitle.type = "text";
+                    inpTitle.value = n.title || "";
+                    inpTitle.oninput = () => { n.title = inpTitle.value; save(); };
+                    tdTitle.append(inpTitle);
+
+                    const tdText = document.createElement("td");
+                    const txt = document.createElement("textarea");
+                    txt.className = "tableContent";
+                    txt.value = n.text || "";
+                    txt.oninput = () => { n.text = txt.value; save(); };
+                    tdText.append(txt);
+
+                    const tdOps = document.createElement("td");
+                    tdOps.classList.add("td-center");
+                    const ops = document.createElement("div");
+                    ops.className = "opsCell";
+
+                    if (n.status === "todo") {
+                        const acceptBtn = document.createElement("button");
+                        acceptBtn.textContent = "受注";
+                        acceptBtn.className = "tableBtn accent";
+                        acceptBtn.onclick = () => acceptOrder(n);
+                        ops.append(acceptBtn);
+                    } else if (n.status === "doing") {
+                        const completeBtn = document.createElement("button");
+                        completeBtn.textContent = "完了";
+                        completeBtn.className = "tableBtn accent";
+                        completeBtn.onclick = () => completeTask(n, completeBtn);
+
+                        const cancelBtn = document.createElement("button");
+                        cancelBtn.textContent = "受注取消";
+                        cancelBtn.className = "tableBtn accent";
+                        cancelBtn.onclick = () => cancelOrder(n);
+
+                        ops.append(completeBtn, cancelBtn);
+                    } else {
+                        const undoBtn = document.createElement("button");
+                        undoBtn.textContent = "完了取消";
+                        undoBtn.className = "tableBtn accent";
+                        undoBtn.onclick = () => undoCompleteToTodo(n);
+                        ops.append(undoBtn);
+                    }
+
+                    tdOps.append(ops);
+
+                    const tdDel = document.createElement("td");
+                    tdDel.classList.add("td-center");
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "tableBtn danger";
+                    delBtn.textContent = "削除";
+                    delBtn.onclick = () => deleteNoteById(n.id);
+                    tdDel.append(delBtn);
+
+                    tr.append(tdId, tdType, tdLock, tdUnlock, tdPlan, tdStatus, tdTitle, tdText, tdOps, tdDel);
+                    tableBody.append(tr);
+                }
+            }
+
+            // ===== render: daily（最低限） =====
+            function renderDaily() {
+                dailyBody.innerHTML = "";
+                for (const d of dailyItems) {
+                    const tr = document.createElement("tr");
+
+                    const tdId = document.createElement("td");
+                    tdId.className = "cell-id";
+                    const idBtn = document.createElement("button");
+                    idBtn.className = "idCopyBtn";
+                    idBtn.textContent = d.id;
+                    idBtn.onclick = async () => {
+                        const ok = await copyToClipboard(d.id);
+                        idBtn.classList.add("copied");
+                        idBtn.textContent = ok ? "コピー済" : "失敗";
+                        setTimeout(() => { idBtn.classList.remove("copied"); idBtn.textContent = d.id; }, 650);
+                    };
+                    tdId.append(idBtn);
+
+                    const tdLock = document.createElement("td");
+                    tdLock.classList.add("td-center");
+                    const sel = buildLockSelect(d.lockState);
+                    tdLock.append(sel);
+
+                    const tdUnlock = document.createElement("td");
+                    const inpUnlock = buildUnlockInput(d.unlockTasks);
+                    tdUnlock.append(inpUnlock);
+
+                    const applyUnlockEnabled = () => {
+                        const locked = (sel.value === "lock");
+                        inpUnlock.disabled = !locked;
+                        if (!locked) {
+                            inpUnlock.value = "";
+                            d.unlockTasks = "";
+                        }
+                    };
+                    applyUnlockEnabled();
+
+                    sel.onchange = () => { d.lockState = sel.value; applyUnlockEnabled(); save(); };
+                    inpUnlock.oninput = () => { if (sel.value !== "lock") return; d.unlockTasks = inpUnlock.value; save(); };
+
+                    const tdPlan = document.createElement("td");
+                    tdPlan.classList.add("td-center");
+                    const inpPlan = document.createElement("input");
+                    inpPlan.type = "number";
+                    inpPlan.value = String(d.plan ?? 0);
+                    inpPlan.onchange = () => { setPlan(d, inpPlan.value); save(); };
+                    tdPlan.append(inpPlan);
+
+                    const tdTitle = document.createElement("td");
+                    const inpTitle = document.createElement("input");
+                    inpTitle.type = "text";
+                    inpTitle.value = d.title || "";
+                    inpTitle.oninput = () => { d.title = inpTitle.value; save(); };
+                    tdTitle.append(inpTitle);
+
+                    const tdText = document.createElement("td");
+                    const txt = document.createElement("textarea");
+                    txt.className = "tableContent";
+                    txt.value = d.text || "";
+                    txt.oninput = () => { d.text = txt.value; save(); };
+                    tdText.append(txt);
+
+                    const tdDel = document.createElement("td");
+                    tdDel.classList.add("td-center");
+                    const delBtn = document.createElement("button");
+                    delBtn.className = "tableBtn danger";
+                    delBtn.textContent = "削除";
+                    delBtn.onclick = () => {
+                        if (!confirm("このデイリー情報を削除するっすか？")) return;
+                        dailyItems = dailyItems.filter(x => x !== d);
+                        save(); renderAll();
+                    };
+                    tdDel.append(delBtn);
+
+                    tr.append(tdId, tdLock, tdUnlock, tdPlan, tdTitle, tdText, tdDel);
+                    dailyBody.append(tr);
+                }
+            }
+
+            function renderAll() {
+                totalPointsEl.textContent = totalPoints;
+                computeLinkGroups();          // ★ここで毎回更新
+                updateViewUI();
+                updateFilterUI();
+                renderNotes();
+                renderTable();
+                renderDaily();
+            }
+
+            function dailyUpdate() {
+                const existingIds = new Set(notes.map(n => n.id));
+                for (const d of dailyItems) {
+                    if (existingIds.has(d.id)) continue;
+                    const p = randomPos();
+                    const n = {
+                        id: d.id,
+                        type: "daily",
+                        title: d.title || "",
+                        text: d.text || "",
+                        status: "todo",
+                        done: false,
+                        plan: Number(d.plan) || 0,
+                        x: p.x, y: p.y, z: ++z,
+                        lockState: d.lockState || "none",
+                        unlockTasks: d.unlockTasks || ""
+                    };
+                    migrateNote(n);
+                    notes.push(n);
+                    existingIds.add(d.id);
+                }
+                save(); renderAll();
+            }
+
+            // ===== CSV（デイリー登録のみ） =====
+            function pad2(n) { return String(n).padStart(2, "0"); }
+            function timestampYYYYMMDDHHMMSS() {
+                const now = new Date();
+                return (
+                    now.getFullYear().toString() +
+                    pad2(now.getMonth() + 1) +
+                    pad2(now.getDate()) +
+                    pad2(now.getHours()) +
+                    pad2(now.getMinutes()) +
+                    pad2(now.getSeconds())
+                );
+            }
+            // ★セル内改行対策：CSVへ出す前に改行を文字列へ退避、読込時に復元するっす
+            function encodeMultilineForCSV(s) {
+                if (s == null) return "";
+                return String(s).replace(/\r\n|\r|\n/g, "\\n");
+            }
+            function decodeMultilineFromCSV(s) {
+                if (s == null) return "";
+                return String(s).replace(/\\n/g, "\n");
+            }
+
+            function csvEscape(v) {
+                if (v == null) return "";
+                const s = String(v);
+                return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            }
+            function parseCSVLine(line) {
+                const out = [];
+                let cur = "";
+                let inQ = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (inQ) {
+                        if (ch === '"') {
+                            if (line[i + 1] === '"') { cur += '"'; i++; }
+                            else inQ = false;
+                        } else cur += ch;
+                    } else {
+                        if (ch === '"') inQ = true;
+                        else if (ch === ',') { out.push(cur); cur = ""; }
+                        else cur += ch;
+                    }
+                }
+                out.push(cur);
+                return out;
+            }
+            function saveDailyCSV() {
+                const ts = timestampYYYYMMDDHHMMSS();
+                const header = ["id", "lockState", "unlockTasks", "plan", "title", "text"].join(",");
+                const rows = dailyItems.map(d => [
+                    csvEscape(d.id),
+                    csvEscape(d.lockState),
+                    csvEscape(encodeMultilineForCSV(d.unlockTasks)),
+                    csvEscape(d.plan),
+                    csvEscape(encodeMultilineForCSV(d.title)),
+                    csvEscape(encodeMultilineForCSV(d.text))
+                ].join(","));
+                const csv = "\ufeff" + [header, ...rows].join("\r\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `デイリー情報_${ts}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }
+            function loadDailyCSVText(text) {
+                text = text.replace(/^\uFEFF/, "");
+                const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+                if (lines.length === 0) return;
+
+                const cols = parseCSVLine(lines[0]).map(s => s.trim());
+                const idx = (name) => cols.indexOf(name);
+                const iId = idx("id");
+                if (iId < 0) return;
+
+                const existing = new Set(dailyItems.map(d => d.id));
+                for (let li = 1; li < lines.length; li++) {
+                    const vals = parseCSVLine(lines[li]);
+                    const id = (vals[iId] ?? "").trim();
+                    if (!id) continue;
+                    if (existing.has(id)) continue;
+
+                    const obj = (name) => {
+                        const k = idx(name);
+                        return k >= 0 ? (vals[k] ?? "") : "";
+                    };
+
+                    dailyItems.push({
+                        id,
+                        lockState: (obj("lockState") || "none").trim() || "none",
+                        unlockTasks: decodeMultilineFromCSV(obj("unlockTasks") || ""),
+                        plan: Number(obj("plan")) || 0,
+                        title: decodeMultilineFromCSV(obj("title") || ""),
+                        text: decodeMultilineFromCSV(obj("text") || "")
+                    });
+                    existing.add(id);
+                }
+                save(); renderAll();
+            }
+
+            // ===== events =====
+            viewMemoBtn.onclick = () => { viewMode = "memo"; save(); renderAll(); };
+            viewTableBtn.onclick = () => { viewMode = "table"; save(); renderAll(); };
+            viewDailyBtn.onclick = () => { viewMode = "daily"; save(); renderAll(); };
+
+            filterBtns.forEach(b => {
+                b.onclick = () => {
+                    filterMode = b.dataset.filter;
+                    save();
+                    renderAll();
+                };
+            });
+
+            addMemoBtn.onclick = () => {
+                const p = randomPos();
+                const n = {
+                    id: genMemoId(),
+                    type: "temp",
+                    title: "",
+                    text: "",
+                    status: "todo",
+                    done: false,
+                    plan: plans[Math.floor(Math.random() * plans.length)],
+                    x: p.x, y: p.y, z: ++z,
+                    lockState: "none",
+                    unlockTasks: ""
+                };
+                migrateNote(n);
+                notes.push(n);
+                save(); renderAll();
+            };
+
+            addDailyBtn.onclick = () => {
+                if (viewMode !== "daily") return;
+                dailyItems.push({
+                    id: genDailyId(),
+                    lockState: "none",
+                    unlockTasks: "",
+                    plan: plans[Math.floor(Math.random() * plans.length)],
+                    title: "",
+                    text: ""
+                });
+                save(); renderAll();
+            };
+
+            dailyUpdateBtn.onclick = () => dailyUpdate();
+
+            csvSaveBtn.onclick = () => { if (viewMode === "daily") saveDailyCSV(); };
+            csvLoadBtn.onclick = () => {
+                if (viewMode !== "daily") return;
+                csvFileInput.value = "";
+                csvFileInput.click();
+            };
+            csvFileInput.onchange = () => {
+                const f = csvFileInput.files && csvFileInput.files[0];
+                if (!f) return;
+                const r = new FileReader();
+                r.onload = () => loadDailyCSVText(String(r.result || ""));
+                r.readAsText(f, "utf-8");
+            };
+
+            resetAllBtn.onclick = () => {
+                if (confirm("全部リセットするっす？（メモ/表/デイリー/ポイント全部消えるっす）")) {
+                    localStorage.removeItem(STORE);
+                    notes = [];
+                    dailyItems = [];
+                    totalPoints = 0;
+                    z = 10;
+                    viewMode = "memo";
+                    filterMode = "active";
+                    busyMap.clear();
+                    save(); renderAll();
+                }
+            };
+
+            load();
+            renderAll();
+        })();
+    </script>
+</body>
+</html>
