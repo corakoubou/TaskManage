@@ -516,14 +516,14 @@
             position: sticky;
             top: 0;
             background: #2b3340;
-            padding: 8px 10px;
+            padding: 4px 6px;
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
             z-index: 1;
         }
 
         tbody td {
-            padding: 8px 10px;
+            padding: 4px 6px;
             border-bottom: 1px solid rgba(59,70,86,.6);
             vertical-align: middle; /* ★中身の縦位置も整える */
         }
@@ -535,10 +535,11 @@
         .cell-id {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
             color: #c8d6ff;
-            max-width: 180px;
+            max-width: 140px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            text-align: center;
         }
 
         /* ★セル内中央揃えユーティリティ */
@@ -581,7 +582,7 @@
         }
 
         .planCol {
-            width: 90px;
+            width: 70px;
         }
 
         .planInput {
@@ -648,6 +649,10 @@
             color: var(--text);
             padding: 6px 8px;
             outline: none;
+        }
+
+        .contentCol {
+            width: 320px;
         }
 
         .unlockInput:disabled {
@@ -751,26 +756,26 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width:180px;">ID</th>
-                        <th style="width:140px;">タスクの種類</th>
-                        <th style="width:240px;">
+                        <th style="width:100px;">ID</th>
+                        <th style="width:80px;">タスクの種類</th>
+                        <th style="width:140px;">
                             <div class="thStack">
                                 <div>ロック状態</div>
                                 <div class="thSub">ロック解除タスク（IDカンマ区切り）</div>
                             </div>
                         </th>
                         <th class="planCol">獲得ポイント</th>
-                        <th style="width:180px;">
+                        <th style="width:110px;">
                             <div class="thStack">
                                 <div>設定時間</div>
                                 <div class="thSub">現在時間（自動更新）</div>
                             </div>
                         </th>
-                        <th style="width:110px;">状態</th>
-                        <th style="width:220px;">タイトル</th>
-                        <th>内容</th>
-                        <th style="width:260px;">操作</th>
-                        <th style="width:90px;">削除</th>
+                        <th style="width:70px;">状態</th>
+                        <th style="width:140px;">タイトル</th>
+                        <th class="contentCol">内容</th>
+                        <th style="width:150px;">操作</th>
+                        <th style="width:60px;">削除</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -783,23 +788,23 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width:180px;">ID（コピー）</th>
-                        <th style="width:240px;">
+                        <th style="width:100px;">ID（コピー）</th>
+                        <th style="width:140px;">
                             <div class="thStack">
                                 <div>ロック状態</div>
                                 <div class="thSub">ロック解除タスク（IDをカンマ区切り）</div>
                             </div>
                         </th>
                         <th class="planCol">獲得ポイント</th>
-                        <th style="width:180px;">
+                        <th style="width:110px;">
                             <div class="thStack">
                                 <div>設定時間</div>
                                 <div class="thSub">現在時間（自動更新）</div>
                             </div>
                         </th>
-                        <th style="width:220px;">タイトル</th>
-                        <th>内容</th>
-                        <th style="width:90px;">削除</th>
+                        <th style="width:140px;">タイトル</th>
+                        <th class="contentCol">内容</th>
+                        <th style="width:60px;">削除</th>
                     </tr>
                 </thead>
                 <tbody id="dailyBody"></tbody>
@@ -1638,7 +1643,7 @@
                     const tr = document.createElement("tr");
 
                     const tdId = document.createElement("td");
-                    tdId.className = "cell-id";
+                    tdId.className = "cell-id td-center";
                     tdId.title = n.id;
                     tdId.textContent = n.id;
 
@@ -1760,6 +1765,7 @@
                     tdTitle.append(inpTitle);
 
                     const tdText = document.createElement("td");
+                    tdText.classList.add("contentCol");
                     const txt = document.createElement("textarea");
                     txt.className = "tableContent";
                     txt.value = n.text || "";
@@ -1820,7 +1826,7 @@
                     const tr = document.createElement("tr");
 
                     const tdId = document.createElement("td");
-                    tdId.className = "cell-id";
+                    tdId.className = "cell-id td-center";
                     const idBtn = document.createElement("button");
                     idBtn.className = "idCopyBtn";
                     idBtn.textContent = d.id;
@@ -1907,6 +1913,7 @@
                     tdTitle.append(inpTitle);
 
                     const tdText = document.createElement("td");
+                    tdText.classList.add("contentCol");
                     const txt = document.createElement("textarea");
                     txt.className = "tableContent";
                     txt.value = d.text || "";
