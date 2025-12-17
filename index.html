@@ -586,10 +586,19 @@
         }
 
         .planInput {
-            width: 7ch;
+            width: 9ch;
             max-width: 90px;
             text-align: right;
         }
+
+        .titleCol {
+            text-align: center;
+        }
+
+            .titleCol > * {
+                margin-left: auto;
+                margin-right: auto;
+            }
 
         /* ★操作ボタンをセル内で中央寄せ＋見た目をいい感じに */
         .opsCell {
@@ -772,7 +781,7 @@
                             </div>
                         </th>
                         <th style="width:70px;">状態</th>
-                        <th style="width:140px;">タイトル</th>
+                        <th class="titleCol" style="width:140px;">タイトル</th>
                         <th class="contentCol">内容</th>
                         <th style="width:150px;">操作</th>
                         <th style="width:60px;">削除</th>
@@ -802,7 +811,7 @@
                                 <div class="thSub">現在時間（自動更新）</div>
                             </div>
                         </th>
-                        <th style="width:140px;">タイトル</th>
+                        <th class="titleCol" style="width:140px;">タイトル</th>
                         <th class="contentCol">内容</th>
                         <th style="width:60px;">削除</th>
                     </tr>
@@ -1758,6 +1767,7 @@
                     }
 
                     const tdTitle = document.createElement("td");
+                    tdTitle.classList.add("titleCol");
                     const inpTitle = document.createElement("input");
                     inpTitle.type = "text";
                     inpTitle.value = n.title || "";
@@ -1906,6 +1916,7 @@
                     tdTimer.append(timerSetRow, timerCurrentRow);
 
                     const tdTitle = document.createElement("td");
+                    tdTitle.classList.add("titleCol");
                     const inpTitle = document.createElement("input");
                     inpTitle.type = "text";
                     inpTitle.value = d.title || "";
