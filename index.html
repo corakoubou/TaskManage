@@ -1248,7 +1248,7 @@
             function cancelOrder(n) {
                 if (isBusy(n.id)) return;
                 if (n.status !== "doing") return;
-                freezeTimer(n);
+                freezeTimer(n, { preserveSetTime: true });
                 n.status = "todo";
                 n.done = false;
                 save(); renderAll();
