@@ -1051,14 +1051,20 @@
 
             function tickTimers() {
                 let started = false;
+                const noteIds = new Set(notes.map(n => n.id));
+
                 for (const n of notes) {
                     started = startTimerIfNeeded(n) || started;
                     updateTimerEl(n);
                 }
+
+                // デイリー登録とメモでIDが被る場合は、実体（メモ側）のタイマー状態を優先する
                 for (const d of dailyItems) {
+                    if (noteIds.has(d.id)) continue;
                     started = startTimerIfNeeded(d) || started;
                     updateTimerEl(d);
                 }
+
                 if (started) save();
             }
 
