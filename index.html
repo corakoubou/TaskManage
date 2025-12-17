@@ -853,6 +853,7 @@
                 if (!("text" in n)) n.text = "";
                 if (!("plan" in n)) n.plan = 0;
                 if (!("timerSeconds" in n)) n.timerSeconds = 0;
+                if (!("timerRemaining" in n)) n.timerRemaining = null;
                 if (!("timerStartedAt" in n)) n.timerStartedAt = null;
                 if (!("x" in n) || !("y" in n)) {
                     const p = randomPos();
@@ -879,6 +880,7 @@
                     if (!("text" in it)) it.text = "";
                     if (!("plan" in it)) it.plan = 0;
                     if (!("timerSeconds" in it)) it.timerSeconds = 0;
+                    if (!("timerRemaining" in it)) it.timerRemaining = null;
                 }
             };
 
@@ -929,20 +931,26 @@
                 if (!hasTimer) return false;
                 if (note.status !== "doing" || note.timerStartedAt) return false;
                 note.timerStartedAt = Date.now();
+                note.timerRemaining = null;
                 return true;
             }
 
             function remainingSeconds(note) {
                 const base = Math.max(0, Math.floor(Number(note.timerSeconds) || 0));
-                if (!note.timerStartedAt || note.status !== "doing") return base;
+                const snapshot = Number.isFinite(note.timerRemaining) ? Math.max(0, Math.floor(note.timerRemaining)) : null;
+                if (!note.timerStartedAt || note.status !== "doing") return snapshot ?? base;
                 const elapsed = Math.floor((Date.now() - note.timerStartedAt) / 1000);
-                return Math.max(0, base - elapsed);
+                const remain = Math.max(0, base - elapsed);
+                note.timerRemaining = remain;
+                return remain;
             }
 
             function freezeTimer(note, { preserveSetTime = false } = {}) {
+                const remain = remainingSeconds(note);
                 if (!preserveSetTime) {
-                    note.timerSeconds = remainingSeconds(note);
+                    note.timerSeconds = remain;
                 }
+                note.timerRemaining = remain;
                 note.timerStartedAt = null;
             }
 
@@ -1234,6 +1242,7 @@
                 n.status = "doing";
                 n.done = false;
                 n.timerStartedAt = Date.now();
+                n.timerRemaining = null;
                 save(); renderAll();
             }
             function cancelOrder(n) {
@@ -1278,6 +1287,7 @@
                 n.status = "todo";
                 n.done = false;
                 n.timerStartedAt = null;
+                n.timerRemaining = null;
                 totalPoints = Math.max(0, totalPoints - (Number(n.plan) || 0));
 
                 save(); renderAll();
@@ -1389,6 +1399,7 @@
                             return;
                         }
                         n.timerSeconds = secs;
+                        n.timerRemaining = Math.max(0, secs);
                         if (n.status === "doing") {
                             if (!n.timerStartedAt && secs > 0) n.timerStartedAt = Date.now();
                         } else {
@@ -1616,6 +1627,7 @@
                             return;
                         }
                         n.timerSeconds = secs;
+                        n.timerRemaining = Math.max(0, secs);
                         if (n.status === "doing") {
                             if (!n.timerStartedAt && secs > 0) n.timerStartedAt = Date.now();
                         } else {
@@ -1773,6 +1785,8 @@
                             return;
                         }
                         d.timerSeconds = secs;
+                        d.timerRemaining = Math.max(0, secs);
+                        d.timerStartedAt = null;
                         save();
                     };
                     const timerSetRow = document.createElement("div");
@@ -1845,6 +1859,7 @@
                         lockState: d.lockState || "none",
                         unlockTasks: d.unlockTasks || "",
                         timerSeconds: Number(d.timerSeconds) || 0,
+                        timerRemaining: Number.isFinite(d.timerRemaining) ? Math.max(0, Math.floor(d.timerRemaining)) : null,
                         timerStartedAt: null
                     };
                     migrateNote(n);
@@ -1956,6 +1971,7 @@
                             const n = Number(raw);
                             return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
                         })(),
+                        timerRemaining: null,
                         title: decodeMultilineFromCSV(obj("title") || ""),
                         text: decodeMultilineFromCSV(obj("text") || "")
                     });
@@ -1991,6 +2007,7 @@
                     lockState: "none",
                     unlockTasks: "",
                     timerSeconds: 0,
+                    timerRemaining: null,
                     timerStartedAt: null
                 };
                 migrateNote(n);
@@ -2007,7 +2024,8 @@
                     plan: plans[Math.floor(Math.random() * plans.length)],
                     title: "",
                     text: "",
-                    timerSeconds: 0
+                    timerSeconds: 0,
+                    timerRemaining: null
                 });
                 save(); renderAll();
             };
