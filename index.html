@@ -447,6 +447,42 @@
                 opacity: .75;
             }
 
+        /* ★完了評価スタンプ */
+        .stamp-grade {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, .5);
+            background: rgba(255, 255, 255, .04);
+            font-weight: 1100;
+            letter-spacing: .12em;
+            font-size: 16px;
+            box-shadow: 0 12px 28px #0006;
+            text-shadow: 0 2px 12px #0008;
+            pointer-events: none;
+        }
+
+        .gradePill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.35);
+            font-weight: 900;
+            letter-spacing: .08em;
+            background: rgba(255,255,255,.05);
+        }
+
+        .grade-S { color: #0ff7c8; border-color: #6df4ff; background: linear-gradient(135deg, rgba(60,255,210,.2), rgba(90,180,255,.14)); }
+        .grade-A { color: #6bd0ff; border-color: #6bd0ff; background: linear-gradient(135deg, rgba(80,200,255,.16), rgba(80,180,255,.10)); }
+        .grade-B { color: #ffd764; border-color: #ffd764; background: linear-gradient(135deg, rgba(255,215,100,.18), rgba(255,170,80,.12)); }
+        .grade-C { color: #ff9f5f; border-color: #ff9f5f; background: linear-gradient(135deg, rgba(255,159,95,.18), rgba(240,110,70,.12)); }
+        .grade-D { color: #ff6b6b; border-color: #c84b6b; background: linear-gradient(135deg, rgba(255,107,107,.16), rgba(130,50,70,.16)); }
+
         /* ===== panels ===== */
         .panel {
             position: fixed;
@@ -852,6 +888,7 @@
                 if (!("title" in n)) n.title = "";
                 if (!("text" in n)) n.text = "";
                 if (!("plan" in n)) n.plan = 0;
+                if (!("grade" in n)) n.grade = null;
                 if (!("timerSeconds" in n)) n.timerSeconds = 0;
                 if (!("timerRemaining" in n)) n.timerRemaining = null;
                 if (!("timerStartedAt" in n)) n.timerStartedAt = null;
@@ -860,6 +897,10 @@
                     n.x = p.x; n.y = p.y;
                 }
                 if (!("z" in n)) n.z = ++z;
+
+                if (!n.grade && n.status === "done") {
+                    n.grade = computeCompletionGrade(n);
+                }
             }
 
             const load = () => {
@@ -945,6 +986,26 @@
                 const remain = base - elapsed;
                 note.timerRemaining = remain;
                 return remain;
+            }
+
+            function computeCompletionGrade(note, remainOverride = null) {
+                const setTime = Math.max(0, Math.floor(Number(note.timerSeconds) || 0));
+                if (setTime <= 0) return null;
+
+                const remain = Number.isFinite(remainOverride)
+                    ? Math.floor(remainOverride)
+                    : (Number.isFinite(note.timerRemaining)
+                        ? Math.floor(note.timerRemaining)
+                        : (note.status === "doing" ? remainingSeconds(note) : null));
+
+                if (!Number.isFinite(remain)) return null;
+                const ratio = remain / setTime;
+
+                if (ratio >= 0.10) return "S";
+                if (ratio >= 0) return "A";
+                if (ratio >= -0.10) return "B";
+                if (ratio >= -0.20) return "C";
+                return "D";
             }
 
             function freezeTimer(note, { preserveSetTime = false } = {}) {
@@ -1246,6 +1307,7 @@
                     return;
                 }
 
+                n.grade = null;
                 n.status = "doing";
                 n.done = false;
                 n.timerStartedAt = Date.now();
@@ -1275,7 +1337,9 @@
                 const coins = coinCountFromPoints(n.plan);
                 flyToPoints(fxFromEl, totalPointsEl, coins, 26);
 
+                const remain = remainingSeconds(n);
                 freezeTimer(n, { preserveSetTime: true });
+                n.grade = computeCompletionGrade(n, remain);
                 n.status = "done";
                 n.done = true;
                 totalPoints += (Number(n.plan) || 0);
@@ -1295,6 +1359,7 @@
                 n.done = false;
                 n.timerStartedAt = null;
                 n.timerRemaining = null;
+                n.grade = null;
                 totalPoints = Math.max(0, totalPoints - (Number(n.plan) || 0));
 
                 save(); renderAll();
@@ -1517,6 +1582,13 @@
                         s.className = "stamp-done";
                         s.textContent = "完了!!";
                         el.append(s);
+
+                        if (n.grade) {
+                            const g = document.createElement("div");
+                            g.className = `stamp-grade grade-${n.grade}`;
+                            g.textContent = `${n.grade} ランク`;
+                            el.append(g);
+                        }
                     }
 
                     // drag
@@ -1661,6 +1733,13 @@
                     pill.className = "statusPill " + stInfo.cls;
                     pill.textContent = stInfo.text;
                     tdStatus.append(pill);
+
+                    if (n.status === "done" && n.grade) {
+                        const grade = document.createElement("span");
+                        grade.className = `gradePill grade-${n.grade}`;
+                        grade.textContent = n.grade;
+                        tdStatus.append(grade);
+                    }
 
                     const tdTitle = document.createElement("td");
                     const inpTitle = document.createElement("input");
@@ -1865,6 +1944,7 @@
                         x: p.x, y: p.y, z: ++z,
                         lockState: d.lockState || "none",
                         unlockTasks: d.unlockTasks || "",
+                        grade: null,
                         timerSeconds: Number(d.timerSeconds) || 0,
                         timerRemaining: Number.isFinite(d.timerRemaining) ? Math.floor(d.timerRemaining) : null,
                         timerStartedAt: null
@@ -2013,6 +2093,7 @@
                     x: p.x, y: p.y, z: ++z,
                     lockState: "none",
                     unlockTasks: "",
+                    grade: null,
                     timerSeconds: 0,
                     timerRemaining: null,
                     timerStartedAt: null
