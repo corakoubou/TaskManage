@@ -939,8 +939,10 @@
                 return Math.max(0, base - elapsed);
             }
 
-            function freezeTimer(note) {
-                note.timerSeconds = remainingSeconds(note);
+            function freezeTimer(note, { preserveSetTime = false } = {}) {
+                if (!preserveSetTime) {
+                    note.timerSeconds = remainingSeconds(note);
+                }
                 note.timerStartedAt = null;
             }
 
@@ -1257,7 +1259,7 @@
                 const coins = coinCountFromPoints(n.plan);
                 flyToPoints(fxFromEl, totalPointsEl, coins, 26);
 
-                freezeTimer(n);
+                freezeTimer(n, { preserveSetTime: true });
                 n.status = "done";
                 n.done = true;
                 totalPoints += (Number(n.plan) || 0);
