@@ -717,7 +717,7 @@
                         <th style="width:180px;">
                             <div class="thStack">
                                 <div>設定時間</div>
-                                <div class="thSub">現在時間</div>
+                                <div class="thSub">現在時間（自動更新）</div>
                             </div>
                         </th>
                         <th style="width:110px;">状態</th>
@@ -748,7 +748,7 @@
                         <th style="width:180px;">
                             <div class="thStack">
                                 <div>設定時間</div>
-                                <div class="thSub">現在時間</div>
+                                <div class="thSub">現在時間（自動更新）</div>
                             </div>
                         </th>
                         <th style="width:220px;">タイトル</th>
@@ -802,6 +802,18 @@
             const busyMap = new Map();
             const timerEls = new Map();
             const TIMER_TICK_MS = 1000;
+
+            function createTimerDisplayInput(id, scope, remain, isExpired) {
+                const timerDisplay = document.createElement("input");
+                timerDisplay.type = "text";
+                timerDisplay.className = "timerInput timerValue timerDisplay";
+                timerDisplay.disabled = true;
+                timerDisplay.title = "自動更新（編集不可）";
+                registerTimerEl(id, timerDisplay, scope);
+                timerDisplay.value = formatHHMMSS(remain);
+                timerDisplay.classList.toggle("expired", isExpired);
+                return timerDisplay;
+            }
 
             function registerTimerEl(id, el, scope = "note") {
                 el.dataset.timerScope = scope;
@@ -1014,7 +1026,12 @@
                 const remain = remainingSeconds(note);
                 const isExpired = note.timerSeconds > 0 && note.timerStartedAt && remain === 0;
                 for (const el of els) {
-                    el.textContent = formatHHMMSS(remain);
+                    const value = formatHHMMSS(remain);
+                    if (el.tagName === "INPUT") {
+                        el.value = value;
+                    } else {
+                        el.textContent = value;
+                    }
                     el.classList.toggle("expired", isExpired);
                 }
             }
@@ -1363,11 +1380,9 @@
                     timerCurrentLabel.className = "timerLabel";
                     timerCurrentLabel.textContent = "現在時間";
 
-                    const timerDisplay = document.createElement("div");
-                    timerDisplay.className = "timerDisplay timerValue";
-                    registerTimerEl(n.id, timerDisplay, "note");
-                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(n));
-                    timerDisplay.classList.toggle("expired", n.timerSeconds > 0 && n.timerStartedAt && remainingSeconds(n) === 0);
+                    const remain = remainingSeconds(n);
+                    const isExpired = n.timerSeconds > 0 && n.timerStartedAt && remain === 0;
+                    const timerDisplay = createTimerDisplayInput(n.id, "note", remain, isExpired);
 
                     timerCurrentRow.append(timerCurrentLabel, timerDisplay);
 
@@ -1582,11 +1597,9 @@
                     const timerSetRow = document.createElement("div");
                     timerSetRow.append(inpTimer);
 
-                    const timerDisplay = document.createElement("div");
-                    timerDisplay.className = "timerDisplay timerValue";
-                    registerTimerEl(n.id, timerDisplay, "table");
-                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(n));
-                    timerDisplay.classList.toggle("expired", n.timerSeconds > 0 && n.timerStartedAt && remainingSeconds(n) === 0);
+                    const remain = remainingSeconds(n);
+                    const isExpired = n.timerSeconds > 0 && n.timerStartedAt && remain === 0;
+                    const timerDisplay = createTimerDisplayInput(n.id, "table", remain, isExpired);
 
                     const timerCurrentRow = document.createElement("div");
                     timerCurrentRow.append(timerDisplay);
@@ -1736,11 +1749,9 @@
                     const timerSetRow = document.createElement("div");
                     timerSetRow.append(inpTimer);
 
-                    const timerDisplay = document.createElement("div");
-                    timerDisplay.className = "timerDisplay timerValue";
-                    registerTimerEl(d.id, timerDisplay, "daily");
-                    timerDisplay.textContent = formatHHMMSS(remainingSeconds(d));
-                    timerDisplay.classList.toggle("expired", d.timerSeconds > 0 && d.timerStartedAt && remainingSeconds(d) === 0);
+                    const remain = remainingSeconds(d);
+                    const isExpired = d.timerSeconds > 0 && d.timerStartedAt && remain === 0;
+                    const timerDisplay = createTimerDisplayInput(d.id, "daily", remain, isExpired);
 
                     const timerCurrentRow = document.createElement("div");
                     timerCurrentRow.append(timerDisplay);
