@@ -931,6 +931,11 @@
                 return Math.max(0, base - elapsed);
             }
 
+            function freezeTimer(note) {
+                note.timerSeconds = remainingSeconds(note);
+                note.timerStartedAt = null;
+            }
+
             function setHeaderBG() {
                 let m = "all";
                 if (viewMode === "memo") m = filterMode;
@@ -1210,9 +1215,9 @@
             function cancelOrder(n) {
                 if (isBusy(n.id)) return;
                 if (n.status !== "doing") return;
+                freezeTimer(n);
                 n.status = "todo";
                 n.done = false;
-                n.timerStartedAt = null;
                 save(); renderAll();
             }
             function completeTask(n, fxFromEl) {
@@ -1230,9 +1235,9 @@
                 const coins = coinCountFromPoints(n.plan);
                 flyToPoints(fxFromEl, totalPointsEl, coins, 26);
 
+                freezeTimer(n);
                 n.status = "done";
                 n.done = true;
-                n.timerStartedAt = null;
                 totalPoints += (Number(n.plan) || 0);
 
                 save(); renderAll();
