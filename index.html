@@ -924,6 +924,14 @@
                 return Math.floor(h * 3600 + m * 60 + s);
             }
 
+            function startTimerIfNeeded(note) {
+                const hasTimer = Math.max(0, Math.floor(Number(note.timerSeconds) || 0)) > 0;
+                if (!hasTimer) return false;
+                if (note.status !== "doing" || note.timerStartedAt) return false;
+                note.timerStartedAt = Date.now();
+                return true;
+            }
+
             function remainingSeconds(note) {
                 const base = Math.max(0, Math.floor(Number(note.timerSeconds) || 0));
                 if (!note.timerStartedAt || note.status !== "doing") return base;
@@ -1042,8 +1050,16 @@
             }
 
             function tickTimers() {
-                for (const n of notes) updateTimerEl(n);
-                for (const d of dailyItems) updateTimerEl(d);
+                let started = false;
+                for (const n of notes) {
+                    started = startTimerIfNeeded(n) || started;
+                    updateTimerEl(n);
+                }
+                for (const d of dailyItems) {
+                    started = startTimerIfNeeded(d) || started;
+                    updateTimerEl(d);
+                }
+                if (started) save();
             }
 
             function deleteNoteById(id) {
