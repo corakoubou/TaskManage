@@ -228,9 +228,9 @@
 
         .timerRow {
             display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
             margin-top: 8px;
             padding-right: 10px;
         }
@@ -1343,7 +1343,11 @@
                             return;
                         }
                         n.timerSeconds = secs;
-                        n.timerStartedAt = (n.status === "doing" && secs > 0) ? Date.now() : null;
+                        if (n.status === "doing") {
+                            if (!n.timerStartedAt && secs > 0) n.timerStartedAt = Date.now();
+                        } else {
+                            n.timerStartedAt = null;
+                        }
                         save();
                         updateTimerEl(n);
                         renderTable();
@@ -1568,7 +1572,11 @@
                             return;
                         }
                         n.timerSeconds = secs;
-                        n.timerStartedAt = (n.status === "doing" && secs > 0) ? Date.now() : null;
+                        if (n.status === "doing") {
+                            if (!n.timerStartedAt && secs > 0) n.timerStartedAt = Date.now();
+                        } else {
+                            n.timerStartedAt = null;
+                        }
                         save(); renderAll();
                     };
                     const timerSetRow = document.createElement("div");
