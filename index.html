@@ -904,11 +904,13 @@
             const coinCountFromPoints = (p) => Math.max(1, Math.min(8, Math.floor(Number(p || 0) / 10) || 1));
 
             function formatHHMMSS(sec) {
-                const s = Math.max(0, Math.floor(sec || 0));
-                const h = Math.floor(s / 3600);
-                const m = Math.floor((s % 3600) / 60);
-                const rem = s % 60;
-                return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
+                const s = Math.floor(sec || 0);
+                const abs = Math.abs(s);
+                const h = Math.floor(abs / 3600);
+                const m = Math.floor((abs % 3600) / 60);
+                const rem = abs % 60;
+                const prefix = s < 0 ? "-" : "";
+                return `${prefix}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
             }
 
             function parseHHMMSS(str) {
@@ -937,10 +939,10 @@
 
             function remainingSeconds(note) {
                 const base = Math.max(0, Math.floor(Number(note.timerSeconds) || 0));
-                const snapshot = Number.isFinite(note.timerRemaining) ? Math.max(0, Math.floor(note.timerRemaining)) : null;
+                const snapshot = Number.isFinite(note.timerRemaining) ? Math.floor(note.timerRemaining) : null;
                 if (!note.timerStartedAt || note.status !== "doing") return snapshot ?? base;
                 const elapsed = Math.floor((Date.now() - note.timerStartedAt) / 1000);
-                const remain = Math.max(0, base - elapsed);
+                const remain = base - elapsed;
                 note.timerRemaining = remain;
                 return remain;
             }
@@ -1052,7 +1054,7 @@
                 const els = timerEls.get(note.id);
                 if (!els || els.size === 0) return;
                 const remain = remainingSeconds(note);
-                const isExpired = note.timerSeconds > 0 && note.timerStartedAt && remain === 0;
+                const isExpired = note.timerSeconds > 0 && note.timerStartedAt && remain <= 0;
                 for (const el of els) {
                     const value = formatHHMMSS(remain);
                     if (el.tagName === "INPUT") {
@@ -1426,7 +1428,7 @@
                     timerCurrentLabel.textContent = "現在時間";
 
                     const remain = remainingSeconds(n);
-                    const isExpired = n.timerSeconds > 0 && n.timerStartedAt && remain === 0;
+                    const isExpired = n.timerSeconds > 0 && n.timerStartedAt && remain <= 0;
                     const timerDisplay = createTimerDisplayInput(n.id, "note", remain, isExpired);
 
                     timerCurrentRow.append(timerCurrentLabel, timerDisplay);
@@ -1644,7 +1646,7 @@
                     timerSetRow.append(inpTimer);
 
                     const remain = remainingSeconds(n);
-                    const isExpired = n.timerSeconds > 0 && n.timerStartedAt && remain === 0;
+                    const isExpired = n.timerSeconds > 0 && n.timerStartedAt && remain <= 0;
                     const timerDisplay = createTimerDisplayInput(n.id, "table", remain, isExpired);
 
                     const timerCurrentRow = document.createElement("div");
@@ -1798,7 +1800,7 @@
                     timerSetRow.append(inpTimer);
 
                     const remain = remainingSeconds(d);
-                    const isExpired = d.timerSeconds > 0 && d.timerStartedAt && remain === 0;
+                    const isExpired = d.timerSeconds > 0 && d.timerStartedAt && remain <= 0;
                     const timerDisplay = createTimerDisplayInput(d.id, "daily", remain, isExpired);
 
                     const timerCurrentRow = document.createElement("div");
@@ -1864,7 +1866,7 @@
                         lockState: d.lockState || "none",
                         unlockTasks: d.unlockTasks || "",
                         timerSeconds: Number(d.timerSeconds) || 0,
-                        timerRemaining: Number.isFinite(d.timerRemaining) ? Math.max(0, Math.floor(d.timerRemaining)) : null,
+                        timerRemaining: Number.isFinite(d.timerRemaining) ? Math.floor(d.timerRemaining) : null,
                         timerStartedAt: null
                     };
                     migrateNote(n);
