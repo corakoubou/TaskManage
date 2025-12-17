@@ -954,6 +954,11 @@
                 note.timerStartedAt = null;
             }
 
+            function resetTimer(note) {
+                note.timerRemaining = null;
+                note.timerStartedAt = null;
+            }
+
             function setHeaderBG() {
                 let m = "all";
                 if (viewMode === "memo") m = filterMode;
@@ -1248,7 +1253,7 @@
             function cancelOrder(n) {
                 if (isBusy(n.id)) return;
                 if (n.status !== "doing") return;
-                freezeTimer(n, { preserveSetTime: true });
+                resetTimer(n);
                 n.status = "todo";
                 n.done = false;
                 save(); renderAll();
