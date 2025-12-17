@@ -580,6 +580,16 @@
             font-size: 11px;
         }
 
+        .planCol {
+            width: 90px;
+        }
+
+        .planInput {
+            width: 7ch;
+            max-width: 90px;
+            text-align: right;
+        }
+
         /* ★操作ボタンをセル内で中央寄せ＋見た目をいい感じに */
         .opsCell {
             display: flex;
@@ -749,7 +759,7 @@
                                 <div class="thSub">ロック解除タスク（IDカンマ区切り）</div>
                             </div>
                         </th>
-                        <th style="width:120px;">獲得ポイント</th>
+                        <th class="planCol">獲得ポイント</th>
                         <th style="width:180px;">
                             <div class="thStack">
                                 <div>設定時間</div>
@@ -780,7 +790,7 @@
                                 <div class="thSub">ロック解除タスク（IDをカンマ区切り）</div>
                             </div>
                         </th>
-                        <th style="width:120px;">獲得ポイント</th>
+                        <th class="planCol">獲得ポイント</th>
                         <th style="width:180px;">
                             <div class="thStack">
                                 <div>設定時間</div>
@@ -1684,6 +1694,7 @@
                     inpPlan.type = "number";
                     inpPlan.min = "0";
                     inpPlan.step = "1";
+                    inpPlan.className = "planInput";
                     inpPlan.value = String(n.plan ?? 0);
                     inpPlan.onchange = () => {
                         setPlan(n, inpPlan.value);
@@ -1852,6 +1863,7 @@
                     tdPlan.classList.add("td-center");
                     const inpPlan = document.createElement("input");
                     inpPlan.type = "number";
+                    inpPlan.className = "planInput";
                     inpPlan.value = String(d.plan ?? 0);
                     inpPlan.onchange = () => { setPlan(d, inpPlan.value); save(); };
                     tdPlan.append(inpPlan);
